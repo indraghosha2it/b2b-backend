@@ -314,6 +314,64 @@ const updateProfile = async (req, res) => {
 // @desc    Change password
 // @route   PUT /api/auth/change-password
 // @access  Private
+// const changePassword = async (req, res) => {
+//   try {
+//     const { currentPassword, newPassword } = req.body;
+
+//     if (!currentPassword || !newPassword) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide current password and new password'
+//       });
+//     }
+
+//     if (newPassword.length < 8) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'New password must be at least 8 characters long'
+//       });
+//     }
+
+//     // Get user with password
+//     const user = await User.findById(req.user.id).select('+password');
+
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     // Verify current password
+//     const isMatch = await user.comparePassword(currentPassword);
+//     if (!isMatch) {
+//       return res.status(401).json({
+//         success: false,
+//         error: 'Current password is incorrect'
+//       });
+//     }
+
+//     // Update password
+//     user.password = newPassword;
+//     await user.save();
+
+//     res.json({
+//       success: true,
+//       message: 'Password changed successfully'
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Change password error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error'
+//     });
+//   }
+// };
+
+// @desc    Change password
+// @route   PUT /api/auth/change-password
+// @access  Private
 const changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -351,8 +409,12 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // Update password
-    user.password = newPassword;
+    // IMPORTANT: Hash the new password before saving
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    
+    // Update password with hashed version
+    user.password = hashedPassword;
     await user.save();
 
     res.json({
@@ -454,6 +516,9 @@ const forgotPassword = async (req, res) => {
 // @desc    Reset password
 // @route   POST /api/auth/reset-password/:token
 // @access  Public
+// @desc    Reset password
+// @route   POST /api/auth/reset-password/:token
+// @access  Public
 const resetPassword = async (req, res) => {
   try {
     const { token } = req.params;
@@ -485,8 +550,12 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // Update password
-    user.password = password;
+    // IMPORTANT: Hash the new password before saving
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    // Update password with hashed version
+    user.password = hashedPassword;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();

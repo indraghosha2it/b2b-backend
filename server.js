@@ -9,6 +9,8 @@ dotenv.config();
 // Import routes
 const authRoutes = require('./src/routes/authRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
+const categoryRoutes = require('./src/routes/categoryRoutes');
+
 
 // Initialize Express app
 const app = express();
@@ -59,6 +61,7 @@ connectDB();
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/categories', categoryRoutes); 
 
 // Basic test route
 app.get('/api/test', (req, res) => {

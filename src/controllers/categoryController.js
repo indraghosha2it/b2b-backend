@@ -255,10 +255,85 @@ const deleteCategory = async (req, res) => {
   }
 };
 
+// @desc    Get category with product count
+// @route   GET /api/categories/:id/details
+// @access  Public
+const getCategoryDetails = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id)
+      .populate('createdBy', 'contactPerson email');
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    // Get product count for this category
+    const productCount = await Product.countDocuments({ 
+      category: category._id,
+      isActive: true,
+      isApproved: true 
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...category.toObject(),
+        productCount
+      }
+    });
+  } catch (error) {
+    console.error('Get category details error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while fetching category details'
+    });
+  }
+};
+
+// @desc    Get category with its products
+// @route   GET /api/categories/:id/with-products
+// @access  Public
+const getCategoryWithProducts = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.id)
+      .populate('createdBy', 'contactPerson email')
+      .populate('products.productId', 'description fabric images sizes colors quantityBasedPricing');
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: category
+    });
+  } catch (error) {
+    console.error('Get category with products error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while fetching category'
+    });
+  }
+};
+
+// @desc    Get all products in a category
+
+
+// Update module.exports
+
+
 module.exports = {
   createCategory,
   getCategories,
   getCategoryById,
+ getCategoryWithProducts,
   updateCategory,
-  deleteCategory
+  deleteCategory,
+  getCategoryDetails
 };

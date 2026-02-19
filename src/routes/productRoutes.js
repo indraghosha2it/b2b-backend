@@ -8,7 +8,7 @@ const {
   getProductById,
   updateProduct,
   deleteProduct,
-  approveProduct,
+
   toggleProductStatus,
   getProductsByCategory
 } = require('../controllers/productController');
@@ -37,7 +37,6 @@ router.put('/:id',
 
 // Admin only routes
 router.delete('/:id', isAdmin, deleteProduct);
-router.put('/:id/approve', isAdmin, approveProduct);
 router.put('/:id/toggle', isAdmin, toggleProductStatus);
 
 module.exports = router;

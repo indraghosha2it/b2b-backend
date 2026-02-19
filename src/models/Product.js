@@ -112,11 +112,7 @@ const productSchema = new mongoose.Schema({
     default: true
   },
   
-  isApproved: {
-    type: Boolean,
-    default: false,
-    // For moderator products waiting for admin approval
-  },
+ 
 
   // Tracking
   createdBy: {
@@ -125,14 +121,8 @@ const productSchema = new mongoose.Schema({
     required: true
   },
   
-  approvedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  
-  approvedAt: {
-    type: Date
-  },
+ 
+ 
 
   // Meta
   views: {

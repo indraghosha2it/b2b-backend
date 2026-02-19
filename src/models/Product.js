@@ -42,6 +42,15 @@ const productSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+    targetedCustomer: {
+    type: String,
+    required: [true, 'Targeted customer is required'],
+    enum: {
+      values: ['ladies', 'gents', 'kids', 'unisex'],
+      message: '{VALUE} is not a valid customer type'
+    },
+    default: 'unisex'
+  },
   
   // Category
   category: {

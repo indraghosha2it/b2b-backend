@@ -4,6 +4,9 @@ const { cloudinary } = require('../config/cloudinary');
 
 
 // @access  Private (Moderator/Admin)
+// @desc    Create new product
+// @route   POST /api/products
+// @access  Private (Moderator/Admin)
 const createProduct = async (req, res) => {
   try {
     console.log('Create product request received');
@@ -14,6 +17,7 @@ const createProduct = async (req, res) => {
       productName,
       description,
       category,
+      targetedCustomer, // ADD THIS LINE
       fabric,
       moq,
       pricePerUnit,
@@ -21,6 +25,8 @@ const createProduct = async (req, res) => {
       sizes,
       colors
     } = req.body;
+
+    console.log('Targeted customer received:', targetedCustomer); // Debug log
 
     // Validation
     if (!productName) {
@@ -105,11 +111,12 @@ const createProduct = async (req, res) => {
     // Determine approval status based on user role
     const isApproved = req.user.role === 'admin'; // Admin products auto-approved
 
-    // Create product
+    // Create product - WITH TARGETED CUSTOMER
     const product = await Product.create({
       productName,
       description: description || '',
       category,
+      targetedCustomer: targetedCustomer || 'unisex', // ADD THIS LINE with fallback
       fabric,
       moq: parseInt(moq),
       pricePerUnit: parseFloat(pricePerUnit),

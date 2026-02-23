@@ -57,6 +57,11 @@
 
 const mongoose = require('mongoose');
 
+const additionalInfoSchema = new mongoose.Schema({
+  fieldName: String,
+  fieldValue: String
+});
+
 // Product embedded schema for category
 const embeddedProductSchema = new mongoose.Schema({
   productId: {
@@ -96,6 +101,8 @@ const embeddedProductSchema = new mongoose.Schema({
     code: String,
     name: String
   }],
+
+  additionalInfo: [additionalInfoSchema],
   moq: Number,
   pricePerUnit: Number,
   quantityBasedPricing: [{

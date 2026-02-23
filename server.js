@@ -65,6 +65,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/categories', categoryRoutes); 
 app.use('/api/products', productRoutes); 
 
+
 // Basic test route
 app.get('/api/test', (req, res) => {
   res.json({ 

@@ -1249,6 +1249,188 @@ const { cloudinary } = require('../config/cloudinary');
 // @desc    Create new product
 // @route   POST /api/products
 // @access  Private (Moderator/Admin)
+// const createProduct = async (req, res) => {
+//   try {
+//     console.log('Create product request received');
+//     console.log('Body:', req.body);
+//     console.log('Files:', req.files);
+
+//     const {
+//       productName,
+//       description,
+//       category,
+//       targetedCustomer,
+//       fabric,
+//       moq,
+//       pricePerUnit,
+//       quantityBasedPricing,
+//       sizes,
+//       colors
+//     } = req.body;
+
+//     console.log('Targeted customer received:', targetedCustomer);
+
+//     // Validation
+//     if (!productName) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Product name is required'
+//       });
+//     }
+
+//     if (!category) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Category is required'
+//       });
+//     }
+
+//     // Check if category exists
+//     const categoryExists = await Category.findById(category);
+//     if (!categoryExists) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid category'
+//       });
+//     }
+
+//     // Check if at least one image is uploaded
+//     if (!req.files || req.files.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'At least one product image is required'
+//       });
+//     }
+
+//     // Parse JSON fields
+//     let parsedQuantityPricing = [];
+//     let parsedSizes = [];
+//     let parsedColors = [];
+
+//     try {
+//       parsedQuantityPricing = typeof quantityBasedPricing === 'string' 
+//         ? JSON.parse(quantityBasedPricing) 
+//         : quantityBasedPricing;
+      
+//       parsedSizes = typeof sizes === 'string' 
+//         ? JSON.parse(sizes) 
+//         : sizes;
+      
+//       parsedColors = typeof colors === 'string' 
+//         ? JSON.parse(colors) 
+//         : colors;
+//     } catch (error) {
+//       console.error('Error parsing JSON fields:', error);
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid data format for sizes, colors, or pricing'
+//       });
+//     }
+
+//     // Validate sizes
+//     if (!parsedSizes || parsedSizes.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'At least one size is required'
+//       });
+//     }
+
+//     // Validate colors
+//     if (!parsedColors || parsedColors.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'At least one color is required'
+//       });
+//     }
+
+//     // Process images from Cloudinary
+//     const images = req.files.map((file, index) => ({
+//       url: file.path,
+//       publicId: file.filename,
+//       isPrimary: index === 0 // First image is primary
+//     }));
+
+//     // Create product in Product collection (removed isApproved)
+//     const product = await Product.create({
+//       productName,
+//       description: description || '',
+//       category,
+//       targetedCustomer: targetedCustomer || 'unisex',
+//       fabric,
+//       moq: parseInt(moq),
+//       pricePerUnit: parseFloat(pricePerUnit),
+//       quantityBasedPricing: parsedQuantityPricing,
+//       sizes: parsedSizes,
+//       colors: parsedColors,
+//       images,
+//       createdBy: req.user.id,
+//       isActive: true // Set active by default
+//     });
+
+//     // Prepare embedded product data for category
+//     const embeddedProduct = {
+//       productId: product._id,
+//       productName: product.productName,
+//       slug: product.slug,
+//       description: product.description,
+//       targetedCustomer: product.targetedCustomer,
+//       fabric: product.fabric,
+//       images: product.images,
+//       sizes: product.sizes,
+//       colors: product.colors,
+//       moq: product.moq,
+//       pricePerUnit: product.pricePerUnit,
+//       quantityBasedPricing: product.quantityBasedPricing,
+//       isActive: product.isActive,
+//       createdBy: product.createdBy,
+//       createdAt: product.createdAt
+//     };
+
+//     // Add product to category's products array
+//     await Category.findByIdAndUpdate(
+//       category,
+//       {
+//         $push: { products: embeddedProduct },
+//         $inc: { productCount: 1 }
+//       },
+//       { new: true }
+//     );
+
+//     // Populate references for response
+//     await product.populate([
+//       { path: 'category', select: 'name slug' },
+//       { path: 'createdBy', select: 'contactPerson email role' }
+//     ]);
+
+//     res.status(201).json({
+//       success: true,
+//       data: product,
+//       message: 'Product created successfully'
+//     });
+//   } catch (error) {
+//     console.error('Create product error:', error);
+    
+//     // If there are uploaded files, delete them from Cloudinary
+//     if (req.files && req.files.length > 0) {
+//       try {
+//         for (const file of req.files) {
+//           await cloudinary.uploader.destroy(file.filename);
+//         }
+//       } catch (cloudinaryError) {
+//         console.error('Error deleting from Cloudinary:', cloudinaryError);
+//       }
+//     }
+    
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while creating product'
+//     });
+//   }
+// };
+
+// @desc    Create new product
+// @route   POST /api/products
+// @access  Private (Moderator/Admin)
 const createProduct = async (req, res) => {
   try {
     console.log('Create product request received');
@@ -1265,10 +1447,12 @@ const createProduct = async (req, res) => {
       pricePerUnit,
       quantityBasedPricing,
       sizes,
-      colors
+      colors,
+      additionalInfo // New field
     } = req.body;
 
     console.log('Targeted customer received:', targetedCustomer);
+    console.log('Additional info received:', additionalInfo);
 
     // Validation
     if (!productName) {
@@ -1306,6 +1490,7 @@ const createProduct = async (req, res) => {
     let parsedQuantityPricing = [];
     let parsedSizes = [];
     let parsedColors = [];
+    let parsedAdditionalInfo = []; // New parsed field
 
     try {
       parsedQuantityPricing = typeof quantityBasedPricing === 'string' 
@@ -1319,11 +1504,18 @@ const createProduct = async (req, res) => {
       parsedColors = typeof colors === 'string' 
         ? JSON.parse(colors) 
         : colors;
+      
+      // Parse additional info if provided
+      if (additionalInfo) {
+        parsedAdditionalInfo = typeof additionalInfo === 'string' 
+          ? JSON.parse(additionalInfo) 
+          : additionalInfo;
+      }
     } catch (error) {
       console.error('Error parsing JSON fields:', error);
       return res.status(400).json({
         success: false,
-        error: 'Invalid data format for sizes, colors, or pricing'
+        error: 'Invalid data format for sizes, colors, pricing, or additional info'
       });
     }
 
@@ -1343,6 +1535,24 @@ const createProduct = async (req, res) => {
       });
     }
 
+    // Validate additional info (optional, but validate if provided)
+    if (parsedAdditionalInfo && parsedAdditionalInfo.length > 0) {
+      for (const info of parsedAdditionalInfo) {
+        if (!info.fieldName || !info.fieldName.trim()) {
+          return res.status(400).json({
+            success: false,
+            error: 'Field name is required for additional information'
+          });
+        }
+        if (!info.fieldValue || !info.fieldValue.trim()) {
+          return res.status(400).json({
+            success: false,
+            error: 'Field value is required for additional information'
+          });
+        }
+      }
+    }
+
     // Process images from Cloudinary
     const images = req.files.map((file, index) => ({
       url: file.path,
@@ -1350,7 +1560,7 @@ const createProduct = async (req, res) => {
       isPrimary: index === 0 // First image is primary
     }));
 
-    // Create product in Product collection (removed isApproved)
+    // Create product in Product collection with additionalInfo
     const product = await Product.create({
       productName,
       description: description || '',
@@ -1362,6 +1572,7 @@ const createProduct = async (req, res) => {
       quantityBasedPricing: parsedQuantityPricing,
       sizes: parsedSizes,
       colors: parsedColors,
+      additionalInfo: parsedAdditionalInfo, // New field
       images,
       createdBy: req.user.id,
       isActive: true // Set active by default
@@ -1381,6 +1592,7 @@ const createProduct = async (req, res) => {
       moq: product.moq,
       pricePerUnit: product.pricePerUnit,
       quantityBasedPricing: product.quantityBasedPricing,
+      additionalInfo: product.additionalInfo, // Include in embedded product
       isActive: product.isActive,
       createdBy: product.createdBy,
       createdAt: product.createdAt
@@ -1653,7 +1865,7 @@ const getProductById = async (req, res) => {
 
     const product = await Product.findOne(query)
       .populate('category', 'name slug')
-      .populate('createdBy', 'contactPerson');
+      .populate('createdBy', 'companyName contactPerson email role'); // Added more fields
 
     if (!product) {
       return res.status(404).json({
@@ -1698,6 +1910,7 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
           'products.$.moq': updateData.moq,
           'products.$.pricePerUnit': updateData.pricePerUnit,
           'products.$.quantityBasedPricing': updateData.quantityBasedPricing,
+           'products.$.additionalInfo': updateData.additionalInfo,
           'products.$.images': updateData.images,
           'products.$.isActive': updateData.isActive,
           'products.$.updatedAt': new Date()
@@ -1726,6 +1939,217 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
   }
 };
 
+
+
+// @route   PUT /api/products/:id
+// @access  Private (Moderator/Admin)
+// const updateProduct = async (req, res) => {
+//   try {
+//     const product = await Product.findById(req.params.id);
+
+//     if (!product) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'Product not found'
+//       });
+//     }
+
+//     // CHANGE THIS SECTION - Remove the creator check
+//     // Check permissions - only creator or admin can update
+//     // if (req.user.role !== 'admin' && product.createdBy.toString() !== req.user.id) {
+//     //   return res.status(403).json({
+//     //     success: false,
+//     //     error: 'You can only update your own products'
+//     //   });
+//     // }
+
+//     // NEW CODE - Allow both admin and moderator to update any product
+//     // Only check if user is admin or moderator, no creator check
+//     if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
+//       return res.status(403).json({
+//         success: false,
+//         error: 'You do not have permission to update products'
+//       });
+//     }
+
+//     const {
+//       productName,
+//       description,
+//       category,
+//       targetedCustomer,
+//       fabric,
+//       moq,
+//       pricePerUnit,
+//       quantityBasedPricing,
+//       sizes,
+//       colors,
+//     } = req.body;
+
+//     const oldCategory = product.category.toString();
+//     const newCategory = category || oldCategory;
+
+//     // Check if category is being changed
+//     if (category && category !== oldCategory) {
+//       const categoryExists = await Category.findById(category);
+//       if (!categoryExists) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid category'
+//         });
+//       }
+//     }
+
+//     // Update fields
+//     if (productName) product.productName = productName;
+//     if (description !== undefined) product.description = description;
+//     if (category) product.category = category;
+//     if (targetedCustomer) product.targetedCustomer = targetedCustomer;
+//     if (fabric) product.fabric = fabric;
+//     if (moq) product.moq = parseInt(moq);
+//     if (pricePerUnit) product.pricePerUnit = parseFloat(pricePerUnit);
+
+//     // Parse and update JSON fields
+//     if (quantityBasedPricing) {
+//       try {
+//         const parsed = typeof quantityBasedPricing === 'string' 
+//           ? JSON.parse(quantityBasedPricing) 
+//           : quantityBasedPricing;
+//         product.quantityBasedPricing = parsed;
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid quantity based pricing format'
+//         });
+//       }
+//     }
+
+//     if (sizes) {
+//       try {
+//         const parsed = typeof sizes === 'string' 
+//           ? JSON.parse(sizes) 
+//           : sizes;
+//         if (parsed.length === 0) {
+//           return res.status(400).json({
+//             success: false,
+//             error: 'At least one size is required'
+//           });
+//         }
+//         product.sizes = parsed;
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid sizes format'
+//         });
+//       }
+//     }
+
+//     if (colors) {
+//       try {
+//         const parsed = typeof colors === 'string' 
+//           ? JSON.parse(colors) 
+//           : colors;
+//         if (parsed.length === 0) {
+//           return res.status(400).json({
+//             success: false,
+//             error: 'At least one color is required'
+//           });
+//         }
+//         product.colors = parsed;
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid colors format'
+//         });
+//       }
+//     }
+
+//     // Handle new images
+//     if (req.files && req.files.length > 0) {
+//       // Delete old images from Cloudinary
+//       for (const image of product.images) {
+//         if (image.publicId) {
+//           await cloudinary.uploader.destroy(image.publicId);
+//         }
+//       }
+
+//       // Add new images
+//       const newImages = req.files.map((file, index) => ({
+//         url: file.path,
+//         publicId: file.filename,
+//         isPrimary: index === 0
+//       }));
+      
+//       product.images = newImages;
+//     }
+
+//     await product.save();
+
+//     // Update embedded product in category
+//     const updateData = {
+//       productName: product.productName,
+//       description: product.description,
+//       targetedCustomer: product.targetedCustomer,
+//       fabric: product.fabric,
+//       sizes: product.sizes,
+//       colors: product.colors,
+//       moq: product.moq,
+//       pricePerUnit: product.pricePerUnit,
+//       quantityBasedPricing: product.quantityBasedPricing,
+//       images: product.images,
+//       isActive: product.isActive
+//     };
+
+//     // If category changed, remove from old and add to new
+//     if (category && category !== oldCategory) {
+//       await removeEmbeddedProductFromCategory(oldCategory, product._id);
+      
+//       const embeddedProduct = {
+//         productId: product._id,
+//         ...updateData,
+//         createdBy: product.createdBy,
+//         createdAt: product.createdAt
+//       };
+      
+//       await Category.findByIdAndUpdate(
+//         newCategory,
+//         {
+//           $push: { products: embeddedProduct },
+//           $inc: { productCount: 1 }
+//         }
+//       );
+//     } else {
+//       await updateEmbeddedProductInCategory(newCategory, product._id, updateData);
+//     }
+
+//     await product.populate([
+//       { path: 'category', select: 'name slug' },
+//       { path: 'createdBy', select: 'contactPerson' }
+//     ]);
+
+//     res.json({
+//       success: true,
+//       data: product,
+//       message: 'Product updated successfully'
+//     });
+//   } catch (error) {
+//     console.error('Update product error:', error);
+    
+//     if (req.files && req.files.length > 0) {
+//       try {
+//         for (const file of req.files) {
+//           await cloudinary.uploader.destroy(file.filename);
+//         }
+//       } catch (cloudinaryError) {
+//         console.error('Error deleting from Cloudinary:', cloudinaryError);
+//       }
+//     }
+    
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while updating product'
+//     });
+//   }
+// };
 // @desc    Update product
 // @route   PUT /api/products/:id
 // @access  Private (Moderator/Admin)
@@ -1740,11 +2164,11 @@ const updateProduct = async (req, res) => {
       });
     }
 
-    // Check permissions - only creator or admin can update
-    if (req.user.role !== 'admin' && product.createdBy.toString() !== req.user.id) {
+    // Check permissions - allow both admin and moderator to update any product
+    if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
       return res.status(403).json({
         success: false,
-        error: 'You can only update your own products'
+        error: 'You do not have permission to update products'
       });
     }
 
@@ -1758,7 +2182,8 @@ const updateProduct = async (req, res) => {
       pricePerUnit,
       quantityBasedPricing,
       sizes,
-      colors
+      colors,
+      additionalInfo // New field
     } = req.body;
 
     const oldCategory = product.category.toString();
@@ -1775,7 +2200,7 @@ const updateProduct = async (req, res) => {
       }
     }
 
-    // Update fields
+    // Update basic fields
     if (productName) product.productName = productName;
     if (description !== undefined) product.description = description;
     if (category) product.category = category;
@@ -1784,7 +2209,7 @@ const updateProduct = async (req, res) => {
     if (moq) product.moq = parseInt(moq);
     if (pricePerUnit) product.pricePerUnit = parseFloat(pricePerUnit);
 
-    // Parse and update JSON fields
+    // Parse and update quantity based pricing
     if (quantityBasedPricing) {
       try {
         const parsed = typeof quantityBasedPricing === 'string' 
@@ -1799,6 +2224,7 @@ const updateProduct = async (req, res) => {
       }
     }
 
+    // Parse and update sizes
     if (sizes) {
       try {
         const parsed = typeof sizes === 'string' 
@@ -1819,6 +2245,7 @@ const updateProduct = async (req, res) => {
       }
     }
 
+    // Parse and update colors
     if (colors) {
       try {
         const parsed = typeof colors === 'string' 
@@ -1835,6 +2262,40 @@ const updateProduct = async (req, res) => {
         return res.status(400).json({
           success: false,
           error: 'Invalid colors format'
+        });
+      }
+    }
+
+    // Parse and update additional info
+    if (additionalInfo) {
+      try {
+        const parsed = typeof additionalInfo === 'string' 
+          ? JSON.parse(additionalInfo) 
+          : additionalInfo;
+        
+        // Validate additional info if provided and not empty
+        if (parsed && parsed.length > 0) {
+          for (const info of parsed) {
+            if (!info.fieldName || !info.fieldName.trim()) {
+              return res.status(400).json({
+                success: false,
+                error: 'Field name is required for additional information'
+              });
+            }
+            if (!info.fieldValue || !info.fieldValue.trim()) {
+              return res.status(400).json({
+                success: false,
+                error: 'Field value is required for additional information'
+              });
+            }
+          }
+        }
+        
+        product.additionalInfo = parsed;
+      } catch (error) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid additional info format'
         });
       }
     }
@@ -1860,7 +2321,7 @@ const updateProduct = async (req, res) => {
 
     await product.save();
 
-    // Update embedded product in category
+    // Prepare update data for embedded product in category
     const updateData = {
       productName: product.productName,
       description: product.description,
@@ -1871,8 +2332,10 @@ const updateProduct = async (req, res) => {
       moq: product.moq,
       pricePerUnit: product.pricePerUnit,
       quantityBasedPricing: product.quantityBasedPricing,
+      additionalInfo: product.additionalInfo || [], // Include additional info
       images: product.images,
-      isActive: product.isActive
+      isActive: product.isActive,
+      updatedAt: new Date()
     };
 
     // If category changed, remove from old and add to new
@@ -1910,6 +2373,7 @@ const updateProduct = async (req, res) => {
   } catch (error) {
     console.error('Update product error:', error);
     
+    // If there are uploaded files, delete them from Cloudinary
     if (req.files && req.files.length > 0) {
       try {
         for (const file of req.files) {
@@ -1992,7 +2456,22 @@ const toggleProductStatus = async (req, res) => {
     await product.save();
 
     // Update embedded product in category
+    // await updateEmbeddedProductInCategory(product.category, product._id, {
+    //   isActive: product.isActive
+    // });
+      // Update embedded product in category with complete data
     await updateEmbeddedProductInCategory(product.category, product._id, {
+      productName: product.productName,
+      description: product.description,
+      targetedCustomer: product.targetedCustomer,
+      fabric: product.fabric,
+      sizes: product.sizes,
+      colors: product.colors,
+      moq: product.moq,
+      pricePerUnit: product.pricePerUnit,
+      quantityBasedPricing: product.quantityBasedPricing,
+      additionalInfo: product.additionalInfo || [], // Include additionalInfo
+      images: product.images,
       isActive: product.isActive
     });
 

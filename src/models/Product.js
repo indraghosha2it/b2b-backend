@@ -25,6 +25,20 @@ const colorSchema = new mongoose.Schema({
   }
 });
 
+
+const additionalInfoSchema = new mongoose.Schema({
+  fieldName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  fieldValue: {
+    type: String,
+    required: true,
+    trim: true
+  }
+});
+
 const productSchema = new mongoose.Schema({
   // Basic Details
   productName: {
@@ -90,6 +104,7 @@ const productSchema = new mongoose.Schema({
   }],
   
   colors: [colorSchema],
+  additionalInfo: [additionalInfoSchema],
 
   // Pricing
   moq: {
@@ -137,6 +152,8 @@ const productSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+
 
 // Create slug from product name before saving
 productSchema.pre('save', function() {

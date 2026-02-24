@@ -7,6 +7,7 @@ const {
   addToCart,
   updateCartItem,
   removeFromCart,
+   removeColorFromItem,
   clearCart,
   submitInquiry,
   uploadAttachment
@@ -20,6 +21,7 @@ router.get('/', getCart);
 router.post('/add', addToCart);
 router.put('/item/:itemId', updateCartItem);
 router.delete('/item/:itemId', removeFromCart);
+router.delete('/item/:itemId/color/:colorIndex', removeColorFromItem);
 router.delete('/clear', clearCart);
 
 // Inquiry submission

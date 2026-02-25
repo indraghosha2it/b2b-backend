@@ -12,6 +12,8 @@ const adminRoutes = require('./src/routes/adminRoutes');
 const categoryRoutes = require('./src/routes/categoryRoutes');
 const productRoutes = require('./src/routes/productRoutes');
 const inquiryCartRoutes = require('./src/routes/inquiryCartRoutes');
+const inquiryRoutes = require('./src/routes/inquiryRoutes'); // ADD THIS
+const adminInquiryRoutes = require('./src/routes/adminInquiryRoutes'); // ADD THIS
 
 
 // Initialize Express app
@@ -65,8 +67,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/categories', categoryRoutes); 
 app.use('/api/products', productRoutes); 
+app.use('/uploads', express.static('uploads'));
 app.use('/api/inquiry-cart', inquiryCartRoutes);
-
+app.use('/api/inquiries', inquiryRoutes); // ADD THIS - Customer inquiry routes
+app.use('/api/admin/inquiries', adminInquiryRoutes); // ADD THIS - Admin inquiry routes
 
 // Basic test route
 app.get('/api/test', (req, res) => {

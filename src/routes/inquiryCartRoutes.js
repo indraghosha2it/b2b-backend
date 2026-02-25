@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
-const upload = require('../middleware/uploadMiddleware');
+const uploadAttachment = require('../middleware/uploadAttachmentMiddleware');
 const {
   getCart,
   addToCart,
@@ -10,7 +10,7 @@ const {
    removeColorFromItem,
   clearCart,
   submitInquiry,
-  uploadAttachment
+   uploadAttachment: uploadAttachmentController
 } = require('../controllers/inquiryCartController');
 
 // All routes require authentication
@@ -26,6 +26,23 @@ router.delete('/clear', clearCart);
 
 // Inquiry submission
 router.post('/submit', submitInquiry);
-router.post('/upload', upload.single('attachment'), uploadAttachment);
+// router.post('/upload', upload.single('attachment'), uploadAttachment);
+// File upload route - with error handling
+router.post('/upload', (req, res, next) => {
+  console.log('📤 Upload request received');
+  console.log('Content-Type:', req.headers['content-type']);
+  
+  uploadAttachment.single('attachment')(req, res, (err) => {
+    if (err) {
+      console.error('❌ Upload error:', err);
+      return res.status(400).json({
+        success: false,
+        error: err.message || 'File upload failed'
+      });
+    }
+    console.log('✅ File uploaded successfully:', req.file);
+    next();
+  });
+}, uploadAttachmentController);
 
 module.exports = router;

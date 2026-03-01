@@ -35,10 +35,7 @@ const colorDetailSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  // specialInstructions: {  // Per-color special instructions
-  //   type: String,
-  //   default: ''
-  // }
+ 
 }, { _id: false });
 
 // Main product item schema - ONE per product with multiple colors - EXACTLY like cart
@@ -123,7 +120,7 @@ const inquirySchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['submitted', 'quoted', 'accepted', 'invoiced', 'paid', 'cancelled'],
+    enum: ['submitted', 'quoted', 'accepted', 'invoiced',  'cancelled'],
     default: 'submitted'
   }
 }, {
@@ -131,18 +128,60 @@ const inquirySchema = new mongoose.Schema({
 });
 
 // Pre-save hook to generate inquiry number
+// inquirySchema.pre('save', async function() {
+//   if (this.isNew && !this.inquiryNumber) {
+//     const date = new Date();
+//     const year = date.getFullYear().toString().slice(-2);
+//     const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    
+//     const count = await mongoose.model('Inquiry').countDocuments({
+//       inquiryNumber: { $regex: `^INQ-${year}${month}-` }
+//     });
+    
+//     this.inquiryNumber = `INQ-${year}${month}-${(count + 1).toString().padStart(4, '0')}`;
+//   }
+// });
+// Pre-save hook to generate inquiry number
+// Pre-save hook to generate inquiry number - CORRECT ASYNC PATTERN
 inquirySchema.pre('save', async function() {
+  // Only generate if this is a new document and inquiryNumber is not set
   if (this.isNew && !this.inquiryNumber) {
-    const date = new Date();
-    const year = date.getFullYear().toString().slice(-2);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    
-    const count = await mongoose.model('Inquiry').countDocuments({
-      inquiryNumber: { $regex: `^INQ-${year}${month}-` }
-    });
-    
-    this.inquiryNumber = `INQ-${year}${month}-${(count + 1).toString().padStart(4, '0')}`;
+    try {
+      const date = new Date();
+      const year = date.getFullYear().toString().slice(-2);
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      
+      const prefix = `INQ-${year}${month}-`;
+      
+      // Find the highest existing inquiry number for this month
+      const lastInquiry = await mongoose.model('Inquiry')
+        .findOne({ 
+          inquiryNumber: { $regex: `^${prefix}` } 
+        })
+        .sort({ inquiryNumber: -1 })
+        .select('inquiryNumber');
+      
+      let nextNumber = 1;
+      if (lastInquiry && lastInquiry.inquiryNumber) {
+        const parts = lastInquiry.inquiryNumber.split('-');
+        if (parts.length === 3) {
+          const lastNumber = parseInt(parts[2]);
+          if (!isNaN(lastNumber)) {
+            nextNumber = lastNumber + 1;
+          }
+        }
+      }
+      
+      this.inquiryNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+      
+      console.log(`Generated inquiry number: ${this.inquiryNumber}`);
+    } catch (error) {
+      console.error('Error in inquiry number generation:', error);
+      throw error; // This will reject the save promise
+    }
   }
 });
+
+module.exports = mongoose.model('Inquiry', inquirySchema);
 
 module.exports = mongoose.model('Inquiry', inquirySchema);

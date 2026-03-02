@@ -425,11 +425,23 @@ const invoiceSchema = new mongoose.Schema({
     default: 0
   },
   dueAmount: Number,
+    paidPercentage: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  unpaidPercentage: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
   
   // Status fields
   paymentStatus: {
     type: String,
-    enum:  ['paid', 'partial', 'unpaid', 'overdue', 'overpaid', 'cancelled'],
+    enum:  ['paid', 'partial', 'unpaid', 'overpaid', 'cancelled'],
     default: 'unpaid'
   },
   // status: {

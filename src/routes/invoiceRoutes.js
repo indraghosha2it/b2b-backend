@@ -14,7 +14,8 @@ const {
   updateInvoice,
   deleteInvoice,
   updatePaymentStatus,
-  cancelInvoice
+  cancelInvoice,
+  getNextInvoiceNumber
 } = require('../controllers/invoiceController');
 
 // All routes require authentication
@@ -22,6 +23,8 @@ router.use(protect);
 
 // Customer routes (any authenticated user)
 router.get('/my-invoices', getMyInvoices);
+
+router.get('/next-number', authorize('admin'), getNextInvoiceNumber);
 router.get('/:id', getInvoiceById);
 
 // Admin routes

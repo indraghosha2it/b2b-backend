@@ -425,6 +425,7 @@ const invoiceSchema = new mongoose.Schema({
     default: 0
   },
   dueAmount: Number,
+
     paidPercentage: {
     type: Number,
     default: 0,
@@ -475,43 +476,47 @@ const invoiceSchema = new mongoose.Schema({
 
 // Pre-save hook to generate invoice number - FIXED with next parameter
 // Pre-save hook to generate invoice number - Alternative version without next
+// models/Invoice.js
 invoiceSchema.pre('save', async function() {
   try {
-    if (this.isNew && !this.invoiceNumber) {
-      const date = new Date();
-      const year = date.getFullYear().toString().slice(-2);
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      
-      const count = await mongoose.model('Invoice').countDocuments({
-        invoiceNumber: { $regex: `^INV-${year}${month}-` }
-      });
-      
-      this.invoiceNumber = `INV-${year}${month}-${(count + 1).toString().padStart(4, '0')}`;
+    if (this.isNew) {
+      // If invoiceNumber is already set (from frontend), validate it's correct
+      if (this.invoiceNumber) {
+        const date = new Date();
+        const year = date.getFullYear().toString().slice(-2);
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const expectedPrefix = `INV-${year}${month}-`;
+        
+        // Check if it has the correct prefix
+        if (!this.invoiceNumber.startsWith(expectedPrefix)) {
+          // If not, generate a new one
+          const count = await mongoose.model('Invoice').countDocuments({
+            invoiceNumber: { $regex: `^${expectedPrefix}` }
+          });
+          this.invoiceNumber = `${expectedPrefix}${(count + 1).toString().padStart(4, '0')}`;
+        }
+      } else {
+        // If no invoice number, generate one
+        const date = new Date();
+        const year = date.getFullYear().toString().slice(-2);
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        
+        const count = await mongoose.model('Invoice').countDocuments({
+          invoiceNumber: { $regex: `^INV-${year}${month}-` }
+        });
+        
+        this.invoiceNumber = `INV-${year}${month}-${(count + 1).toString().padStart(4, '0')}`;
+      }
     }
     this.updatedAt = new Date();
   } catch (error) {
-    throw error; // Mongoose will handle the error
+    throw error;
   }
 });
 
-// Alternative without next parameter (using Promise return)
-// invoiceSchema.pre('save', async function() {
-//   if (this.isNew && !this.invoiceNumber) {
-//     const date = new Date();
-//     const year = date.getFullYear().toString().slice(-2);
-//     const month = (date.getMonth() + 1).toString().padStart(2, '0');
-//     
-//     const count = await mongoose.model('Invoice').countDocuments({
-//       invoiceNumber: { $regex: `^INV-${year}${month}-` }
-//     });
-//     
-//     this.invoiceNumber = `INV-${year}${month}-${(count + 1).toString().padStart(4, '0')}`;
-//   }
-//   this.updatedAt = new Date();
-// });
 
 // Index for better query performance
-invoiceSchema.index({ invoiceNumber: 1 });
+// invoiceSchema.index({ invoiceNumber: 1 });
 invoiceSchema.index({ userId: 1 });
 invoiceSchema.index({ inquiryId: 1 });
 invoiceSchema.index({ status: 1 });

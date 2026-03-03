@@ -650,6 +650,26 @@ const createInvoice = async (req, res) => {
       createdBy: req.user.id
     };
 
+    // Round all monetary values to 2 decimal places
+    if (invoiceData.subtotal) invoiceData.subtotal = Math.round(invoiceData.subtotal * 100) / 100;
+    if (invoiceData.vatAmount) invoiceData.vatAmount = Math.round(invoiceData.vatAmount * 100) / 100;
+    if (invoiceData.totalAfterVat) invoiceData.totalAfterVat = Math.round(invoiceData.totalAfterVat * 100) / 100;
+    if (invoiceData.discountAmount) invoiceData.discountAmount = Math.round(invoiceData.discountAmount * 100) / 100;
+    if (invoiceData.totalAfterDiscount) invoiceData.totalAfterDiscount = Math.round(invoiceData.totalAfterDiscount * 100) / 100;
+    if (invoiceData.shippingCost) invoiceData.shippingCost = Math.round(invoiceData.shippingCost * 100) / 100;
+    if (invoiceData.finalTotal) invoiceData.finalTotal = Math.round(invoiceData.finalTotal * 100) / 100;
+    if (invoiceData.amountPaid) invoiceData.amountPaid = Math.round(invoiceData.amountPaid * 100) / 100;
+    if (invoiceData.dueAmount) invoiceData.dueAmount = Math.round(invoiceData.dueAmount * 100) / 100;
+
+    // Round items
+    if (invoiceData.items) {
+      invoiceData.items = invoiceData.items.map(item => {
+        if (item.unitPrice) item.unitPrice = Math.round(item.unitPrice * 100) / 100;
+        if (item.total) item.total = Math.round(item.total * 100) / 100;
+        return item;
+      });
+    }
+
     // Validate required fields
     if (!invoiceData.userId) {
       return res.status(400).json({
@@ -657,6 +677,9 @@ const createInvoice = async (req, res) => {
         error: 'User ID is required'
       });
     }
+    
+    // DO NOT DELETE THE INVOICE NUMBER - it's now coming from frontend
+    // delete invoiceData.invoiceNumber;  // <-- REMOVE OR COMMENT THIS LINE
 
     // Calculate payment details including percentages
     const paymentDetails = calculatePaymentStatus(
@@ -707,6 +730,46 @@ const createInvoice = async (req, res) => {
     });
   }
 };
+// @desc    Get next invoice number
+// @route   GET /api/invoices/next-number
+// @access  Private/Admin
+const getNextInvoiceNumber = async (req, res) => {
+  try {
+    const date = new Date();
+    const year = date.getFullYear().toString().slice(-2);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const prefix = `INV-${year}${month}-`;
+    
+    // Find the latest invoice with this month's prefix
+    const latestInvoice = await Invoice.findOne({
+      invoiceNumber: { $regex: `^${prefix}` }
+    }).sort({ invoiceNumber: -1 });
+    
+    let nextNumber = 1;
+    
+    if (latestInvoice) {
+      // Extract the number part and increment
+      const lastNumber = parseInt(latestInvoice.invoiceNumber.split('-')[2]);
+      nextNumber = lastNumber + 1;
+    }
+    
+    const nextInvoiceNumber = `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+    
+    res.json({
+      success: true,
+      data: nextInvoiceNumber
+    });
+  } catch (error) {
+    console.error('Get next invoice number error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error getting next invoice number'
+    });
+  }
+};
+
+
+
 
 const getAllInvoices = async (req, res) => {
   try {
@@ -1187,5 +1250,6 @@ module.exports = {
   updateInvoice,
   deleteInvoice,
   updatePaymentStatus,
-  cancelInvoice
+  cancelInvoice,
+  getNextInvoiceNumber
 };

@@ -1,7 +1,7 @@
 const InquiryCart = require('../models/InquiryCart');
 const Inquiry = require('../models/Inquiry');
 const Product = require('../models/Product');
-
+const { sendInquirySubmissionEmails } = require('../utils/emailService');
 // @desc    Get user's inquiry cart
 // @route   GET /api/inquiry-cart
 // @access  Private
@@ -711,6 +711,147 @@ const clearCart = async (req, res) => {
 // @desc    Submit inquiry from cart
 // @route   POST /api/inquiry-cart/submit
 // @access  Private
+// const submitInquiry = async (req, res) => {
+//   try {
+//     const { specialInstructions, attachments } = req.body;
+
+//     console.log('📝 Submitting inquiry for user:', req.user.id);
+
+//     // Get user's cart
+//     const cart = await InquiryCart.findOne({ userId: req.user.id });
+//     if (!cart || cart.items.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Cart is empty'
+//       });
+//     }
+
+//     // DEBUG: Log cart structure
+//     console.log('🛒 CART STRUCTURE:', JSON.stringify({
+//       items: cart.items.map(item => ({
+//         productId: item.productId,
+//         productName: item.productName,
+//         colorsCount: item.colors?.length || 0,
+//         colors: item.colors?.map(c => ({
+//           color: c.color,
+//           totalForColor: c.totalForColor,
+//           sizeQuantities: c.sizeQuantities
+//         }))
+//       }))
+//     }, null, 2));
+
+//     // Get user details
+//     const userDetails = {
+//       companyName: req.user.companyName || '',
+//       contactPerson: req.user.contactPerson || '',
+//       email: req.user.email || '',
+//       phone: req.user.phone || '',
+//       whatsapp: req.user.whatsapp || '',
+//       country: req.user.country || '',
+//       address: req.user.address || '',
+//       city: req.user.city || '',
+//       zipCode: req.user.zipCode || ''
+//     };
+
+//     // CRITICAL FIX: Map cart items to inquiry items preserving structure
+//     const inquiryItems = cart.items.map(cartItem => {
+//       // Ensure colors array exists and has data
+//       const colors = (cartItem.colors || []).map(color => ({
+//         color: {
+//           code: color.color?.code || '#CCCCCC',
+//           name: color.color?.name || color.color?.code || 'Unknown Color'
+//         },
+//         sizeQuantities: (color.sizeQuantities || [])
+//           .filter(sq => sq.quantity > 0) // Only include non-zero quantities
+//           .map(sq => ({
+//             size: sq.size,
+//             quantity: sq.quantity
+//           })),
+//         totalForColor: color.totalForColor || 0,
+//         specialInstructions: color.specialInstructions || ''
+//       })).filter(color => color.sizeQuantities.length > 0); // Only include colors with quantities
+
+//       return {
+//         productId: cartItem.productId,
+//         productName: cartItem.productName,
+//         colors: colors,
+//         totalQuantity: cartItem.totalQuantity || 0,
+//         unitPrice: cartItem.unitPrice || 0,
+//         moq: cartItem.moq || 0,
+//         productImage: cartItem.productImage || '',
+//         specialInstructions: cartItem.specialInstructions || ''
+//       };
+//     }).filter(item => item.colors.length > 0); // Only include items with colors
+
+//     console.log('📦 INQUIRY ITEMS TO SAVE:', JSON.stringify({
+//       items: inquiryItems.map(item => ({
+//         productName: item.productName,
+//         colorsCount: item.colors.length,
+//         colors: item.colors.map(c => ({
+//           color: c.color.code,
+//           totalForColor: c.totalForColor,
+//           sizeCount: c.sizeQuantities.length
+//         }))
+//       }))
+//     }, null, 2));
+
+//     // Calculate totals
+//     const totalQuantity = inquiryItems.reduce((sum, item) => sum + item.totalQuantity, 0);
+//     const subtotal = inquiryItems.reduce((sum, item) => sum + (item.totalQuantity * item.unitPrice), 0);
+
+//     // Create inquiry
+//     const inquiry = new Inquiry({
+//       userId: req.user.id,
+//       userDetails,
+//       items: inquiryItems,
+//       specialInstructions: specialInstructions || '',
+//       attachments: attachments || [],
+//       totalItems: inquiryItems.length,
+//       totalQuantity: totalQuantity,
+//       subtotal: subtotal,
+//       status: 'submitted'
+//     });
+
+//     await inquiry.save();
+
+//     console.log('✅ Inquiry created successfully:', inquiry.inquiryNumber);
+//     console.log('💾 SAVED INQUIRY:', JSON.stringify({
+//       inquiryNumber: inquiry.inquiryNumber,
+//       items: inquiry.items.map(item => ({
+//         productName: item.productName,
+//         colorsCount: item.colors.length,
+//         colors: item.colors.map(c => ({
+//           color: c.color.code,
+//           totalForColor: c.totalForColor
+//         }))
+//       }))
+//     }, null, 2));
+
+//     // Clear the cart
+//     cart.items = [];
+//     await cart.save();
+
+//     res.status(201).json({
+//       success: true,
+//       data: {
+//         inquiryId: inquiry._id,
+//         inquiryNumber: inquiry.inquiryNumber,
+//         status: inquiry.status
+//       },
+//       message: 'Inquiry submitted successfully'
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Submit inquiry error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Error submitting inquiry'
+//     });
+//   }
+// };
+// @desc    Submit inquiry from cart
+// @route   POST /api/inquiry-cart/submit
+// @access  Private
 const submitInquiry = async (req, res) => {
   try {
     const { specialInstructions, attachments } = req.body;
@@ -752,6 +893,8 @@ const submitInquiry = async (req, res) => {
       city: req.user.city || '',
       zipCode: req.user.zipCode || ''
     };
+
+    console.log('🔍 User email for notifications:', userDetails.email);
 
     // CRITICAL FIX: Map cart items to inquiry items preserving structure
     const inquiryItems = cart.items.map(cartItem => {
@@ -830,6 +973,21 @@ const submitInquiry = async (req, res) => {
     // Clear the cart
     cart.items = [];
     await cart.save();
+
+    // --- EMAIL NOTIFICATIONS ---
+    try {
+      console.log('📧 SENDING EMAILS NOW...');
+      
+      // Import the email service (if not already imported at top)
+      const { sendInquirySubmissionEmails } = require('../utils/emailService');
+      
+      const emailResult = await sendInquirySubmissionEmails(inquiry, userDetails);
+      console.log('📧 Email result:', emailResult);
+      
+    } catch (emailError) {
+      console.error('❌ Email sending error:', emailError.message);
+    }
+    // --- END EMAIL NOTIFICATIONS ---
 
     res.status(201).json({
       success: true,

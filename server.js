@@ -16,6 +16,7 @@ const inquiryRoutes = require('./src/routes/inquiryRoutes'); // ADD THIS
 const adminInquiryRoutes = require('./src/routes/adminInquiryRoutes'); // ADD THIS
 const uploadRoutes = require('./src/routes/uploadRoutes');
 const invoiceRoutes = require('./src/routes/invoiceRoutes'); 
+const blogRoutes = require('./src/routes/blogRoutes');
 
 
 // Initialize Express app
@@ -75,6 +76,7 @@ app.use('/api/inquiries', inquiryRoutes); // ADD THIS - Customer inquiry routes
 app.use('/api/admin/inquiries', adminInquiryRoutes); // ADD THIS - Admin inquiry routes
 app.use('/api/upload', uploadRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/blogs', blogRoutes);
 
 // Basic test route
 app.get('/api/test', (req, res) => {

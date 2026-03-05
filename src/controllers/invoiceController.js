@@ -504,6 +504,20 @@
 
 const Invoice = require('../models/Invoice');
 const Inquiry = require('../models/Inquiry');
+const { 
+  sendInvoiceCreationEmails, 
+  sendInvoiceUpdateEmails, 
+  sendPaymentStatusUpdateEmails 
+} = require('../utils/invoiceEmailService');
+
+// ADD THIS HELPER FUNCTION HERE
+const formatPrice = (price) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2
+  }).format(price || 0);
+};
 
 // Helper function to calculate payment status - REMOVED overdue
 // const calculatePaymentStatus = (finalTotal, amountPaid) => {
@@ -716,6 +730,22 @@ const createInvoice = async (req, res) => {
         console.log(`✅ Inquiry ${inquiry.inquiryNumber} status updated to invoiced`);
       }
     }
+     // --- SEND INVOICE CREATION EMAILS ---
+    try {
+      const customerDetails = {
+        companyName: invoice.customer.companyName,
+        contactPerson: invoice.customer.contactPerson,
+        email: invoice.customer.email,
+        phone: invoice.customer.phone,
+        whatsapp: invoice.customer.whatsapp
+      };
+      
+      await sendInvoiceCreationEmails(invoice, customerDetails);
+      console.log(`📧 Invoice creation emails sent for: ${invoice.invoiceNumber}`);
+    } catch (emailError) {
+      console.error('❌ Failed to send invoice creation emails:', emailError.message);
+    }
+    // --- END EMAILS ---
 
     res.status(201).json({
       success: true,
@@ -1010,6 +1040,14 @@ const updateInvoice = async (req, res) => {
       });
     }
 
+    
+    // Store old values for change tracking
+    const oldValues = {
+      finalTotal: invoice.finalTotal,
+      amountPaid: invoice.amountPaid,
+      paymentStatus: invoice.paymentStatus
+    };
+
     const updateData = { ...req.body, updatedAt: new Date() };
     
     // Recalculate payment details if amount paid or final total changed
@@ -1029,6 +1067,42 @@ const updateInvoice = async (req, res) => {
       updateData,
       { new: true, runValidators: true }
     );
+
+     try {
+      // Only send emails if payment status changed or significant changes
+      if (oldValues.paymentStatus !== updatedInvoice.paymentStatus || 
+          oldValues.finalTotal !== updatedInvoice.finalTotal ||
+          oldValues.amountPaid !== updatedInvoice.amountPaid) {
+        
+        const customerDetails = {
+          companyName: updatedInvoice.customer.companyName,
+          contactPerson: updatedInvoice.customer.contactPerson,
+          email: updatedInvoice.customer.email,
+          phone: updatedInvoice.customer.phone,
+          whatsapp: updatedInvoice.customer.whatsapp
+        };
+        
+        // Create a description of changes
+        let changes = [];
+        if (oldValues.finalTotal !== updatedInvoice.finalTotal) {
+          changes.push(`Total amount changed from ${formatPrice(oldValues.finalTotal)} to ${formatPrice(updatedInvoice.finalTotal)}`);
+        }
+        if (oldValues.amountPaid !== updatedInvoice.amountPaid) {
+          changes.push(`Paid amount changed from ${formatPrice(oldValues.amountPaid)} to ${formatPrice(updatedInvoice.amountPaid)}`);
+        }
+        if (oldValues.paymentStatus !== updatedInvoice.paymentStatus) {
+          changes.push(`Payment status changed from ${oldValues.paymentStatus} to ${updatedInvoice.paymentStatus}`);
+        }
+        
+        const changesText = changes.join('. ');
+        
+        await sendInvoiceUpdateEmails(updatedInvoice, customerDetails, changesText);
+        console.log(`📧 Invoice update emails sent for: ${updatedInvoice.invoiceNumber}`);
+      }
+    } catch (emailError) {
+      console.error('❌ Failed to send invoice update emails:', emailError.message);
+    }
+     // --- END EMAILS ---
 
     res.json({
       success: true,
@@ -1148,6 +1222,9 @@ const updatePaymentStatus = async (req, res) => {
       });
     }
 
+    // Store old status for email
+    const oldStatus = invoice.paymentStatus;
+
     // Update amount paid if provided
     if (amountPaid !== undefined) {
       invoice.amountPaid = amountPaid;
@@ -1189,6 +1266,26 @@ const updatePaymentStatus = async (req, res) => {
 
     await invoice.save();
 
+      // --- SEND PAYMENT STATUS UPDATE EMAILS ---
+    try {
+      // Only send if status actually changed
+      if (oldStatus !== invoice.paymentStatus) {
+        const customerDetails = {
+          companyName: invoice.customer.companyName,
+          contactPerson: invoice.customer.contactPerson,
+          email: invoice.customer.email,
+          phone: invoice.customer.phone,
+          whatsapp: invoice.customer.whatsapp
+        };
+        
+        await sendPaymentStatusUpdateEmails(invoice, customerDetails, oldStatus, invoice.paymentStatus);
+        console.log(`📧 Payment status update emails sent for: ${invoice.invoiceNumber} (${oldStatus} → ${invoice.paymentStatus})`);
+      }
+    } catch (emailError) {
+      console.error('❌ Failed to send payment status emails:', emailError.message);
+    }
+    // --- END EMAILS ---
+
     res.json({
       success: true,
       data: invoice,
@@ -1225,8 +1322,26 @@ const cancelInvoice = async (req, res) => {
       });
     }
 
+      const oldStatus = invoice.paymentStatus;
     invoice.paymentStatus = 'cancelled';
     await invoice.save();
+
+      // --- SEND PAYMENT STATUS UPDATE EMAILS ---
+    try {
+      const customerDetails = {
+        companyName: invoice.customer.companyName,
+        contactPerson: invoice.customer.contactPerson,
+        email: invoice.customer.email,
+        phone: invoice.customer.phone,
+        whatsapp: invoice.customer.whatsapp
+      };
+      
+      await sendPaymentStatusUpdateEmails(invoice, customerDetails, oldStatus, 'cancelled');
+      console.log(`📧 Invoice cancellation emails sent for: ${invoice.invoiceNumber}`);
+    } catch (emailError) {
+      console.error('❌ Failed to send cancellation emails:', emailError.message);
+    }
+    // --- END EMAILS ---
 
     res.json({
       success: true,

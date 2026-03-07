@@ -148,7 +148,44 @@ const productSchema = new mongoose.Schema({
   inquiryCount: {
     type: Number,
     default: 0
-  }
+  },
+    // Reviews
+  reviews: [{
+    reviewId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Review'
+    },
+    rating: Number,
+    title: String,
+    comment: String,
+    userName: String,
+    userCompany: String,
+    createdAt: Date,
+    isFeatured: {
+      type: Boolean,
+      default: false
+    }
+  }],
+
+  // Review statistics
+  reviewStats: {
+    averageRating: {
+      type: Number,
+      default: 0
+    },
+    totalReviews: {
+      type: Number,
+      default: 0
+    },
+    ratingDistribution: {
+      1: { type: Number, default: 0 },
+      2: { type: Number, default: 0 },
+      3: { type: Number, default: 0 },
+      4: { type: Number, default: 0 },
+      5: { type: Number, default: 0 }
+    }
+  },
+
 }, {
   timestamps: true
 });

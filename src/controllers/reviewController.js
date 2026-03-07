@@ -2,6 +2,7 @@ const Review = require('../models/Review');
 const Product = require('../models/Product');
 const User = require('../models/User');
 
+
 // @desc    Create a new review
 // @route   POST /api/reviews
 // @access  Private (All authenticated users)
@@ -39,9 +40,10 @@ const createReview = async (req, res) => {
       });
     }
 
+    let product = null;
     // If product ID provided, check if product exists
     if (productId) {
-      const product = await Product.findById(productId);
+      product = await Product.findById(productId);
       if (!product) {
         return res.status(404).json({
           success: false,
@@ -81,6 +83,30 @@ const createReview = async (req, res) => {
       isAnonymous: isAnonymous || false,
       status: 'pending' // All reviews start as pending
     });
+
+    // If product exists, add review reference to product (even if pending)
+    if (product) {
+      // Add to product's reviews array (for pending reviews)
+      product.reviews.push({
+        reviewId: review._id,
+        rating: review.rating,
+        title: review.title,
+        comment: review.comment,
+        userName: review.userName,
+        userCompany: review.userCompany,
+        createdAt: review.createdAt,
+        isFeatured: false
+      });
+
+      // Update review stats (include pending in counts but not in average)
+      product.reviewStats.totalReviews += 1;
+      product.reviewStats.ratingDistribution[rating] += 1;
+      
+      // Only approved reviews count towards average
+      // We'll update average when review is approved
+      
+      await product.save();
+    }
 
     // Populate user and product data for response
     await review.populate([
@@ -233,6 +259,85 @@ const getReviews = async (req, res) => {
   }
 };
 
+
+// @desc    Get public reviews (approved only) for homepage/all reviews page
+// @route   GET /api/reviews/public
+// @access  Public
+const getPublicReviews = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 9,
+      sort = '-createdAt',
+      rating,
+      search
+    } = req.query;
+
+    // Build query - only approved reviews
+    const query = { 
+      status: 'approved'
+    };
+
+    // Filter by rating
+    if (rating) {
+      query.rating = parseInt(rating);
+    }
+
+    // Search in comment, title, or product name
+    if (search) {
+      query.$or = [
+        { comment: { $regex: search, $options: 'i' } },
+        { title: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Parse sort
+    let sortOption = {};
+    if (sort === '-createdAt' || sort === 'newest') {
+      sortOption = { createdAt: -1 };
+    } else if (sort === '-rating' || sort === 'highest') {
+      sortOption = { rating: -1, createdAt: -1 };
+    } else {
+      sortOption = { createdAt: -1 };
+    }
+
+    const reviews = await Review.find(query)
+      .populate('user', 'companyName contactPerson email')
+      .populate('product', 'productName images slug')
+      .populate('response.respondedBy', 'contactPerson email')
+      .sort(sortOption)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const total = await Review.countDocuments(query);
+
+    // Calculate average rating for all approved reviews
+    const allApproved = await Review.find({ status: 'approved' }).select('rating');
+    const averageRating = allApproved.length > 0
+      ? allApproved.reduce((sum, r) => sum + r.rating, 0) / allApproved.length
+      : 0;
+
+    res.json({
+      success: true,
+      data: reviews,
+      averageRating,
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit)),
+        limit: parseInt(limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get public reviews error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while fetching reviews'
+    });
+  }
+};
+
 // @desc    Get single review by ID
 // @route   GET /api/reviews/:id
 // @access  Public
@@ -278,10 +383,7 @@ const getReviewById = async (req, res) => {
   }
 };
 
-// @desc    Update own review
-// @route   PUT /api/reviews/:id
-// @access  Private (Owner only)
-// @desc    Update review
+
 // @route   PUT /api/reviews/:id
 // @access  Private (Owner can update only pending, Admin/Moderator can update any)
 const updateReview = async (req, res) => {
@@ -425,6 +527,50 @@ const deleteReview = async (req, res) => {
 // @desc    Moderate review (Approve/Reject)
 // @route   PUT /api/reviews/:id/moderate
 // @access  Private (Admin/Moderator only)
+// const moderateReview = async (req, res) => {
+//   try {
+//     const { status, moderationNote } = req.body;
+
+//     if (!status || !['approved', 'rejected'].includes(status)) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Valid status (approved/rejected) is required'
+//       });
+//     }
+
+//     const review = await Review.findById(req.params.id);
+
+//     if (!review) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'Review not found'
+//       });
+//     }
+
+//     review.status = status;
+//     review.moderatedBy = req.user.id;
+//     review.moderatedAt = new Date();
+//     if (moderationNote) review.moderationNote = moderationNote;
+
+//     await review.save();
+
+//     res.json({
+//       success: true,
+//       data: review,
+//       message: `Review ${status} successfully`
+//     });
+
+//   } catch (error) {
+//     console.error('Moderate review error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while moderating review'
+//     });
+//   }
+// };
+// @desc    Moderate review (Approve/Reject)
+// @route   PUT /api/reviews/:id/moderate
+// @access  Private (Admin/Moderator only)
 const moderateReview = async (req, res) => {
   try {
     const { status, moderationNote } = req.body;
@@ -436,7 +582,7 @@ const moderateReview = async (req, res) => {
       });
     }
 
-    const review = await Review.findById(req.params.id);
+    const review = await Review.findById(req.params.id).populate('product');
 
     if (!review) {
       return res.status(404).json({
@@ -445,12 +591,59 @@ const moderateReview = async (req, res) => {
       });
     }
 
+    const oldStatus = review.status;
     review.status = status;
     review.moderatedBy = req.user.id;
     review.moderatedAt = new Date();
     if (moderationNote) review.moderationNote = moderationNote;
 
     await review.save();
+
+    // Update product review stats if review is for a product
+    if (review.product) {
+      const product = await Product.findById(review.product._id);
+      
+      if (product) {
+        // Find the review in product's reviews array
+        const productReview = product.reviews.find(r => 
+          r.reviewId.toString() === review._id.toString()
+        );
+
+        if (productReview) {
+          // Update the review's featured status if it changed
+          productReview.isFeatured = review.isFeatured;
+        }
+
+        // Recalculate average rating if review was approved
+        if (status === 'approved' && oldStatus !== 'approved') {
+          // Get all approved reviews for this product
+          const approvedReviews = await Review.find({
+            product: review.product._id,
+            status: 'approved'
+          });
+          
+          if (approvedReviews.length > 0) {
+            const total = approvedReviews.reduce((sum, r) => sum + r.rating, 0);
+            product.reviewStats.averageRating = total / approvedReviews.length;
+          }
+        } else if (status !== 'approved' && oldStatus === 'approved') {
+          // Review was unapproved, recalculate average without it
+          const approvedReviews = await Review.find({
+            product: review.product._id,
+            status: 'approved'
+          });
+          
+          if (approvedReviews.length > 0) {
+            const total = approvedReviews.reduce((sum, r) => sum + r.rating, 0);
+            product.reviewStats.averageRating = total / approvedReviews.length;
+          } else {
+            product.reviewStats.averageRating = 0;
+          }
+        }
+
+        await product.save();
+      }
+    }
 
     res.json({
       success: true,
@@ -684,6 +877,130 @@ const getPendingCount = async (req, res) => {
     });
   }
 };
+// @desc    Get reviews for a specific product
+// @route   GET /api/reviews/product/:productId
+// @access  Public
+const getProductReviews = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { page = 1, limit = 10, sort = '-createdAt' } = req.query;
+
+    console.log('Fetching reviews for product:', productId);
+
+    // Check if product exists
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        error: 'Product not found'
+      });
+    }
+
+    // Build query - only show approved reviews to public
+    const query = { 
+      product: productId,
+      status: 'approved'
+    };
+
+    console.log('Query:', query);
+
+    // Parse sort
+    let sortOption = {};
+    switch (sort) {
+      case 'newest':
+        sortOption = { createdAt: -1 };
+        break;
+      case 'oldest':
+        sortOption = { createdAt: 1 };
+        break;
+      case 'highest':
+        sortOption = { rating: -1 };
+        break;
+      case 'lowest':
+        sortOption = { rating: 1 };
+        break;
+      case 'helpful':
+        sortOption = { helpfulCount: -1 };
+        break;
+      default:
+        sortOption = { createdAt: -1, isFeatured: -1 };
+    }
+
+    // First, let's just get the reviews without aggregation to isolate the issue
+    const reviews = await Review.find(query)
+      .populate('user', 'companyName contactPerson email')
+      .populate('response.respondedBy', 'contactPerson email')
+      .sort(sortOption)
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit));
+
+    const total = await Review.countDocuments(query);
+
+    console.log(`Found ${reviews.length} reviews out of ${total} total`);
+
+    // Calculate rating distribution safely
+    const ratingDistribution = {
+      1: 0, 2: 0, 3: 0, 4: 0, 5: 0
+    };
+    
+    // Calculate from the fetched reviews (for current page)
+    // For accurate distribution, we should do this with aggregation, but let's keep it simple for now
+    try {
+      // Get all approved reviews for this product to calculate distribution
+      const allReviews = await Review.find({ 
+        product: productId, 
+        status: 'approved' 
+      }).select('rating');
+      
+      allReviews.forEach(review => {
+        if (review.rating >= 1 && review.rating <= 5) {
+          ratingDistribution[review.rating] += 1;
+        }
+      });
+    } catch (distError) {
+      console.error('Error calculating rating distribution:', distError);
+      // Continue with zeros
+    }
+
+    // Calculate average rating
+    let averageRating = 0;
+    if (total > 0) {
+      // Get all approved reviews for accurate average
+      const allReviews = await Review.find({ 
+        product: productId, 
+        status: 'approved' 
+      }).select('rating');
+      
+      const totalRating = allReviews.reduce((sum, review) => sum + review.rating, 0);
+      averageRating = totalRating / total;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        reviews,
+        productStats: {
+          averageRating,
+          totalReviews: total,
+          ratingDistribution
+        }
+      },
+      pagination: {
+        total,
+        page: parseInt(page),
+        pages: Math.ceil(total / parseInt(limit)),
+        limit: parseInt(limit)
+      }
+    });
+
+  } catch (error) {
+    console.error('Get product reviews error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while fetching product reviews'
+    });
+  }
+};
 
 
 module.exports = {
@@ -698,5 +1015,7 @@ module.exports = {
   addResponse,
   getMyReviews,
   getPendingCount,
-  getFeaturedReviews
+  getFeaturedReviews,
+  getProductReviews,
+  getPublicReviews
 };

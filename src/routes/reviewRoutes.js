@@ -55,12 +55,16 @@ const {
   addResponse,
   getMyReviews,
   getPendingCount,
-  getFeaturedReviews
+  getFeaturedReviews,
+  getProductReviews,
+  getPublicReviews
 } = require('../controllers/reviewController');
 
 // ==================== PUBLIC ROUTES (no auth required) ====================
 router.get('/featured', getFeaturedReviews);
+router.get('/public', getPublicReviews);
 router.get('/:id', getReviewById);
+router.get('/product/:productId', getProductReviews);
 
 // ==================== PROTECTED ROUTES (All routes below require authentication) ====================
 router.use(protect);

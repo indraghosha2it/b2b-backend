@@ -6,7 +6,7 @@ const { generateInvoicePDF } = require('./pdfGenerator');
 // Create transporter using environment variables
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT) || 587,
+  port: parseInt(process.env.SMTP_PORT) || 465,
   secure: true,
   auth: {
     user: process.env.SMTP_USER,
@@ -14,9 +14,7 @@ const transporter = nodemailer.createTransport({
   },
   tls: {
     rejectUnauthorized: false
-  },
-  family: 4, // force IPv4
-  connectionTimeout: 60000
+  }
 });
 
 // Verify connection

@@ -231,6 +231,7 @@ const createProduct = async (req, res) => {
     const {
       productName,
       description,
+       instruction,
       category,
       targetedCustomer,
       fabric,
@@ -245,10 +246,7 @@ const createProduct = async (req, res) => {
       tags,
       metaSettings
     } = req.body;
-
-    console.log('Featured:', isFeatured);
-    console.log('Tags:', tags);
-    console.log('Meta Settings:', metaSettings);
+console.log('Instruction received:', instruction); 
 
     // Validation
     if (!productName) {
@@ -389,6 +387,7 @@ const createProduct = async (req, res) => {
     const product = await Product.create({
       productName,
       description: description || '',
+        instruction: instruction || '',
       category,
       targetedCustomer: targetedCustomer || 'unisex',
       fabric,
@@ -413,6 +412,7 @@ const createProduct = async (req, res) => {
       productName: product.productName,
       slug: product.slug,
       description: product.description,
+      instruction: product.instruction,
       targetedCustomer: product.targetedCustomer,
       fabric: product.fabric,
       images: product.images,
@@ -671,37 +671,7 @@ const getProductById = async (req, res) => {
   }
 };
 
-// Helper function to update embedded product in category
-// const updateEmbeddedProductInCategory = async (categoryId, productId, updateData) => {
-//   try {
-//     await Category.findOneAndUpdate(
-//       { 
-//         _id: categoryId,
-//         'products.productId': productId 
-//       },
-//       {
-//         $set: {
-//           'products.$.productName': updateData.productName,
-//           'products.$.description': updateData.description,
-//           'products.$.targetedCustomer': updateData.targetedCustomer,
-//           'products.$.fabric': updateData.fabric,
-//           'products.$.sizes': updateData.sizes,
-//           'products.$.colors': updateData.colors,
-//           'products.$.moq': updateData.moq,
-//           'products.$.pricePerUnit': updateData.pricePerUnit,
-//           'products.$.quantityBasedPricing': updateData.quantityBasedPricing,
-//            'products.$.additionalInfo': updateData.additionalInfo,
-//           'products.$.images': updateData.images,
-//           'products.$.isActive': updateData.isActive,
-//           'products.$.updatedAt': new Date()
-//         }
-//       }
-//     );
-//   } catch (error) {
-//     console.error('Error updating embedded product:', error);
-//     throw error;
-//   }
-// };
+
 // Helper function to update embedded product in category - UPDATE THIS
 const updateEmbeddedProductInCategory = async (categoryId, productId, updateData) => {
   try {
@@ -714,6 +684,7 @@ const updateEmbeddedProductInCategory = async (categoryId, productId, updateData
         $set: {
           'products.$.productName': updateData.productName,
           'products.$.description': updateData.description,
+           'products.$.instruction': updateData.instruction,
           'products.$.targetedCustomer': updateData.targetedCustomer,
           'products.$.fabric': updateData.fabric,
           'products.$.sizes': updateData.sizes,
@@ -754,9 +725,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 };
 
 
-// @desc    Update product
-// @route   PUT /api/products/:id
-// @access  Private (Moderator/Admin)
+
 // const updateProduct = async (req, res) => {
 //   try {
 //     const product = await Product.findById(req.params.id);
@@ -768,7 +737,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       });
 //     }
 
-//     // Check permissions - allow both admin and moderator to update any product
+//     // Check permissions
 //     if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
 //       return res.status(403).json({
 //         success: false,
@@ -787,7 +756,11 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       quantityBasedPricing,
 //       sizes,
 //       colors,
-//       additionalInfo // New field
+//       additionalInfo,
+//       // NEW FIELDS
+//       isFeatured,
+//       tags,
+//       metaSettings
 //     } = req.body;
 
 //     const oldCategory = product.category.toString();
@@ -812,6 +785,11 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //     if (fabric) product.fabric = fabric;
 //     if (moq) product.moq = parseInt(moq);
 //     if (pricePerUnit) product.pricePerUnit = parseFloat(pricePerUnit);
+
+//     // Update new fields
+//     if (isFeatured !== undefined) {
+//       product.isFeatured = isFeatured === 'true' || isFeatured === true;
+//     }
 
 //     // Parse and update quantity based pricing
 //     if (quantityBasedPricing) {
@@ -877,7 +855,6 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //           ? JSON.parse(additionalInfo) 
 //           : additionalInfo;
         
-//         // Validate additional info if provided and not empty
 //         if (parsed && parsed.length > 0) {
 //           for (const info of parsed) {
 //             if (!info.fieldName || !info.fieldName.trim()) {
@@ -900,6 +877,75 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //         return res.status(400).json({
 //           success: false,
 //           error: 'Invalid additional info format'
+//         });
+//       }
+//     }
+
+//     // Parse and update tags
+//     if (tags) {
+//       try {
+//         const parsed = typeof tags === 'string' 
+//           ? JSON.parse(tags) 
+//           : tags;
+        
+//         // Validate tags
+//         if (parsed && parsed.length > 0) {
+//           const validTags = [
+//             'Top Ranking', 'New Arrival', 'Top Deal', 'Best Seller',
+//             'Summer Collection', 'Winter Collection', 'Limited Edition', 'Trending'
+//           ];
+          
+//           for (const tag of parsed) {
+//             if (!validTags.includes(tag)) {
+//               return res.status(400).json({
+//                 success: false,
+//                 error: `Invalid tag: ${tag}`
+//               });
+//             }
+//           }
+//         }
+        
+//         product.tags = parsed;
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid tags format'
+//         });
+//       }
+//     }
+
+//     // Parse and update meta settings
+//     if (metaSettings) {
+//       try {
+//         const parsed = typeof metaSettings === 'string' 
+//           ? JSON.parse(metaSettings) 
+//           : metaSettings;
+        
+//         // Validate meta title length
+//         if (parsed.metaTitle && parsed.metaTitle.length > 70) {
+//           return res.status(400).json({
+//             success: false,
+//             error: 'Meta title should not exceed 70 characters'
+//           });
+//         }
+
+//         // Validate meta description length
+//         if (parsed.metaDescription && parsed.metaDescription.length > 160) {
+//           return res.status(400).json({
+//             success: false,
+//             error: 'Meta description should not exceed 160 characters'
+//           });
+//         }
+
+//         // Update only provided fields
+//         product.metaSettings = {
+//           ...product.metaSettings,
+//           ...parsed
+//         };
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid meta settings format'
 //         });
 //       }
 //     }
@@ -936,9 +982,11 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       moq: product.moq,
 //       pricePerUnit: product.pricePerUnit,
 //       quantityBasedPricing: product.quantityBasedPricing,
-//       additionalInfo: product.additionalInfo || [], // Include additional info
+//       additionalInfo: product.additionalInfo || [],
 //       images: product.images,
 //       isActive: product.isActive,
+//       isFeatured: product.isFeatured, // NEW
+//       tags: product.tags, // NEW
 //       updatedAt: new Date()
 //     };
 
@@ -977,7 +1025,6 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //   } catch (error) {
 //     console.error('Update product error:', error);
     
-//     // If there are uploaded files, delete them from Cloudinary
 //     if (req.files && req.files.length > 0) {
 //       try {
 //         for (const file of req.files) {
@@ -994,7 +1041,8 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //     });
 //   }
 // };
-// @desc    Update product - UPDATE THIS
+
+// @desc    Update product
 // @route   PUT /api/products/:id
 // @access  Private (Moderator/Admin)
 const updateProduct = async (req, res) => {
@@ -1019,6 +1067,7 @@ const updateProduct = async (req, res) => {
     const {
       productName,
       description,
+      instruction, // NEW: Add instruction field
       category,
       targetedCustomer,
       fabric,
@@ -1028,7 +1077,6 @@ const updateProduct = async (req, res) => {
       sizes,
       colors,
       additionalInfo,
-      // NEW FIELDS
       isFeatured,
       tags,
       metaSettings
@@ -1051,6 +1099,7 @@ const updateProduct = async (req, res) => {
     // Update basic fields
     if (productName) product.productName = productName;
     if (description !== undefined) product.description = description;
+    if (instruction !== undefined) product.instruction = instruction; // NEW: Update instruction
     if (category) product.category = category;
     if (targetedCustomer) product.targetedCustomer = targetedCustomer;
     if (fabric) product.fabric = fabric;
@@ -1246,6 +1295,7 @@ const updateProduct = async (req, res) => {
     const updateData = {
       productName: product.productName,
       description: product.description,
+      instruction: product.instruction, // NEW: Include instruction in update
       targetedCustomer: product.targetedCustomer,
       fabric: product.fabric,
       sizes: product.sizes,
@@ -1256,8 +1306,8 @@ const updateProduct = async (req, res) => {
       additionalInfo: product.additionalInfo || [],
       images: product.images,
       isActive: product.isActive,
-      isFeatured: product.isFeatured, // NEW
-      tags: product.tags, // NEW
+      isFeatured: product.isFeatured,
+      tags: product.tags,
       updatedAt: new Date()
     };
 
@@ -1316,6 +1366,11 @@ const updateProduct = async (req, res) => {
 
 // @desc    Delete product
 // @route   DELETE /api/products/:id
+
+
+
+
+
 // @access  Private (Admin only)
 const deleteProduct = async (req, res) => {
   try {

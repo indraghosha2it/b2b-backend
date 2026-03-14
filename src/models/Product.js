@@ -286,6 +286,11 @@ const productSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+   instruction: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   targetedCustomer: {
     type: String,
     required: [true, 'Targeted customer is required'],

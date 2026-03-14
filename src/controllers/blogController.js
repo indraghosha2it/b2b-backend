@@ -1,7 +1,7 @@
 // controllers/blogController.js
 const Blog = require('../models/Blog');
-const { cloudinary, extractPublicIdFromUrl } = require('../config/cloudinary');
-
+const { cloudinary, extractPublicIdFromUrl } = require('../config/cloudinary'); // Keep this one
+const { deleteBlogFile, deleteMultipleBlogFiles } = require('../config/blogCloudinary');
 // controllers/blogController.js - Update the createBlog function
 
 // @desc    Create new blog post
@@ -116,7 +116,14 @@ const createBlog = async (req, res) => {
       url: featuredImageFile.path,
       publicId: featuredImageFile.filename
     };
-
+       // Process video if uploaded
+    let videoUrl = null;
+    let videoPublicId = null;
+    if (req.files && req.files['video'] && req.files['video'].length > 0) {
+      const videoFile = req.files['video'][0];
+      videoUrl = videoFile.path;
+      videoPublicId = videoFile.filename;
+    }
     // Process thumbnail images (if any)
     const thumbnailImages = [];
     if (req.files['thumbnailImages'] && req.files['thumbnailImages'].length > 0) {
@@ -157,6 +164,8 @@ const createBlog = async (req, res) => {
       featuredImage: featuredImage.url,
       featuredImagePublicId: featuredImage.publicId,
       thumbnailImages,
+       videoUrl, 
+      videoPublicId, 
       metaTitle: metaTitle || title,
       metaDescription: metaDescription || excerpt,
       metaKeywords: metaKeywords || '',
@@ -612,6 +621,17 @@ const updateBlog = async (req, res) => {
       blog.featuredImage = newImage.path;
       blog.featuredImagePublicId = newImage.filename;
     }
+     // Handle new video upload
+    if (req.files && req.files['video'] && req.files['video'][0]) {
+      // Delete old video from Cloudinary
+      if (blog.videoPublicId) {
+        await cloudinary.uploader.destroy(blog.videoPublicId);
+      }
+      
+      const newVideo = req.files['video'][0];
+      blog.videoUrl = newVideo.path;
+      blog.videoPublicId = newVideo.filename;
+    }
 
     // ========== FIXED THUMBNAIL HANDLING ==========
     
@@ -696,6 +716,9 @@ if (existingThumbnails) {
         if (req.files['featuredImage'] && req.files['featuredImage'][0]) {
           await cloudinary.uploader.destroy(req.files['featuredImage'][0].filename);
         }
+        if (req.files['video'] && req.files['video'][0]) {
+          await cloudinary.uploader.destroy(req.files['video'][0].filename);
+        }
         if (req.files['thumbnailImages']) {
           for (const file of req.files['thumbnailImages']) {
             await cloudinary.uploader.destroy(file.filename);
@@ -721,6 +744,71 @@ if (existingThumbnails) {
 // @desc    Delete blog post
 // @route   DELETE /api/admin/blogs/:id
 // @access  Private (Admin only)
+// const deleteBlog = async (req, res) => {
+//   try {
+//     const blog = await Blog.findById(req.params.id);
+
+//     if (!blog) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'Blog post not found'
+//       });
+//     }
+
+//     // Check permissions - Admin only for delete
+//     if (req.user.role !== 'admin') {
+//       return res.status(403).json({
+//         success: false,
+//         error: 'Only admins can delete blog posts'
+//       });
+//     }
+
+//     // Delete all images from Cloudinary
+//     // Delete featured image
+//     if (blog.featuredImagePublicId) {
+//       await cloudinary.uploader.destroy(blog.featuredImagePublicId);
+//     }
+//       if (blog.videoPublicId) {
+//       await cloudinary.uploader.destroy(blog.videoPublicId);
+//     }
+
+//     // Delete thumbnail images
+//     for (const thumb of blog.thumbnailImages) {
+//       if (thumb.publicId) {
+//         await cloudinary.uploader.destroy(thumb.publicId);
+//       }
+//     }
+
+//     // Delete paragraph images
+//     for (const para of blog.paragraphs) {
+//       if (para.image) {
+//         const publicId = extractPublicIdFromUrl(para.image);
+//         if (publicId) {
+//           await cloudinary.uploader.destroy(publicId);
+//         }
+//       }
+//     }
+
+//     await blog.deleteOne();
+
+//     res.json({
+//       success: true,
+//       message: 'Blog post deleted successfully'
+//     });
+//   } catch (error) {
+//     console.error('Delete blog error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while deleting blog'
+//     });
+//   }
+// };
+// At the top, import from blogCloudinary
+
+// Then in your deleteBlog function:
+// @desc    Delete blog post
+// @route   DELETE /api/admin/blogs/:id
+// @access  Private (Admin only)
 const deleteBlog = async (req, res) => {
   try {
     const blog = await Blog.findById(req.params.id);
@@ -740,16 +828,21 @@ const deleteBlog = async (req, res) => {
       });
     }
 
-    // Delete all images from Cloudinary
+    // Delete all files from Cloudinary using blogCloudinary functions
     // Delete featured image
     if (blog.featuredImagePublicId) {
-      await cloudinary.uploader.destroy(blog.featuredImagePublicId);
+      await deleteBlogFile(blog.featuredImagePublicId, 'image');
+    }
+
+    // Delete video
+    if (blog.videoPublicId) {
+      await deleteBlogFile(blog.videoPublicId, 'video');
     }
 
     // Delete thumbnail images
     for (const thumb of blog.thumbnailImages) {
       if (thumb.publicId) {
-        await cloudinary.uploader.destroy(thumb.publicId);
+        await deleteBlogFile(thumb.publicId, 'image');
       }
     }
 
@@ -758,7 +851,7 @@ const deleteBlog = async (req, res) => {
       if (para.image) {
         const publicId = extractPublicIdFromUrl(para.image);
         if (publicId) {
-          await cloudinary.uploader.destroy(publicId);
+          await deleteBlogFile(publicId, 'image');
         }
       }
     }

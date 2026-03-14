@@ -11,6 +11,7 @@ const {
   // Admin only
   createInvoice,
   getAllInvoices,
+  getAllInvoicesForStats,
   updateInvoice,
   deleteInvoice,
   updatePaymentStatus,
@@ -26,6 +27,10 @@ router.get('/my-invoices', getMyInvoices);
 
 router.get('/next-number', authorize('admin'), getNextInvoiceNumber);
 router.get('/:id', getInvoiceById);
+
+
+// IMPORTANT: This endpoint must come BEFORE the /:id route
+router.get('/all', authorize('admin'), getAllInvoicesForStats);
 
 // Admin routes
 router.post('/', authorize('admin'), createInvoice);

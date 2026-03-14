@@ -471,122 +471,11 @@ const createProduct = async (req, res) => {
   }
 };
 
-// @desc    Get all products
-// @route   GET /api/products
-// @access  Public
-// const getProducts = async (req, res) => {
-//   try {
-//     const { 
-//       page = 1, 
-//       limit = 12, 
-//       category, 
-//       search, 
-//       minPrice, 
-//       maxPrice,
-//       fabric,
-//       targetedCustomer,
-//       sort = '-createdAt',
-//       includeInactive = false
-//     } = req.query;
 
-//     // Build query
-//     const query = {};
-    
-//     // Only show active products to public
-//     if (!includeInactive) {
-//       query.isActive = true;
-//     }
 
-//     // Filter by category
-//     if (category) {
-//       if (Array.isArray(category)) {
-//         query.category = { $in: category };
-//       } else {
-//         query.category = category;
-//       }
-//     }
 
-//     // Filter by targetedCustomer
-//     if (targetedCustomer) {
-//       if (Array.isArray(targetedCustomer)) {
-//         query.targetedCustomer = { $in: targetedCustomer };
-//       } else {
-//         query.targetedCustomer = targetedCustomer;
-//       }
-//     }
 
-//     // Search by text
-//     if (search) {
-//       query.$text = { $search: search };
-//     }
-
-//     // Filter by fabric
-//     if (fabric) {
-//       query.fabric = { $regex: fabric, $options: 'i' };
-//     }
-
-//     // Price range filter
-//     if (minPrice || maxPrice) {
-//       query.pricePerUnit = {};
-//       if (minPrice) query.pricePerUnit.$gte = parseFloat(minPrice);
-//       if (maxPrice) query.pricePerUnit.$lte = parseFloat(maxPrice);
-//     }
-
-//     // Parse sort
-//     let sortOption = {};
-//     let useCollation = false;
-    
-//     if (sort === 'price_asc') {
-//       sortOption = { pricePerUnit: 1 };
-//     } else if (sort === 'price_desc') {
-//       sortOption = { pricePerUnit: -1 };
-//     } else if (sort === 'name_asc') {
-//       sortOption = { productName: 1 };
-//       useCollation = true; // Enable case-insensitive sorting
-//     } else if (sort === 'newest') {
-//       sortOption = { createdAt: -1 };
-//     } else {
-//       sortOption = { createdAt: -1 };
-//     }
-
-//     // Build the query
-//     let productsQuery = Product.find(query)
-//       .populate('category', 'name slug')
-//       .populate('createdBy', 'contactPerson');
-
-//     // Apply case-insensitive collation for name sorting
-//     if (useCollation) {
-//       productsQuery = productsQuery.collation({ locale: 'en', strength: 2 });
-//     }
-
-//     // Apply sort and pagination
-//     const products = await productsQuery
-//       .sort(sortOption)
-//       .limit(parseInt(limit))
-//       .skip((parseInt(page) - 1) * parseInt(limit));
-
-//     const total = await Product.countDocuments(query);
-
-//     res.json({
-//       success: true,
-//       data: products,
-//       pagination: {
-//         total,
-//         page: parseInt(page),
-//         pages: Math.ceil(total / parseInt(limit)),
-//         limit: parseInt(limit)
-//       }
-//     });
-//   } catch (error) {
-//     console.error('Get products error:', error);
-//     res.status(500).json({
-//       success: false,
-//       error: error.message || 'Server error while fetching products'
-//     });
-//   }
-// };
-
-// @desc    Get all products - UPDATE THIS (add filter options)
+// @desc    Get all products - FIXED with proper partial search
 // @route   GET /api/products
 // @access  Public
 const getProducts = async (req, res) => {
@@ -600,8 +489,9 @@ const getProducts = async (req, res) => {
       maxPrice,
       fabric,
       targetedCustomer,
-      isFeatured, // NEW FILTER
-      tags, // NEW FILTER
+      isFeatured,
+      tags,
+      isActive,
       sort = '-createdAt',
       includeInactive = false
     } = req.query;
@@ -609,8 +499,11 @@ const getProducts = async (req, res) => {
     // Build query
     const query = {};
     
-    // Only show active products to public
-    if (!includeInactive) {
+    // Handle active/inactive filtering
+    if (isActive !== undefined) {
+      query.isActive = isActive === 'true';
+    } 
+    else if (!includeInactive) {
       query.isActive = true;
     }
 
@@ -646,13 +539,23 @@ const getProducts = async (req, res) => {
       }
     }
 
-    // Search by text
-    if (search) {
-      query.$text = { $search: search };
+    // FIXED: Search with partial matching using regex
+    if (search && search.trim() !== '') {
+      const searchTerm = search.trim();
+      // Create a regex pattern that matches the search term anywhere in the string
+      // Case insensitive and escapes special regex characters
+      const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedSearchTerm, 'i');
+      
+      query.$or = [
+        { productName: regex },
+        { fabric: regex },
+        { description: regex }
+      ];
     }
 
-    // Filter by fabric
-    if (fabric) {
+    // Filter by fabric (if not already in search)
+    if (fabric && !search) {
       query.fabric = { $regex: fabric, $options: 'i' };
     }
 
@@ -674,13 +577,16 @@ const getProducts = async (req, res) => {
     } else if (sort === 'name_asc') {
       sortOption = { productName: 1 };
       useCollation = true;
-    } else if (sort === 'featured') { // NEW SORT OPTION
+    } else if (sort === 'featured') {
       sortOption = { isFeatured: -1, createdAt: -1 };
     } else if (sort === 'newest') {
       sortOption = { createdAt: -1 };
     } else {
       sortOption = { createdAt: -1 };
     }
+
+    console.log('Search query:', search); // Debug log
+    console.log('MongoDB query:', JSON.stringify(query)); // Debug log
 
     // Build the query
     let productsQuery = Product.find(query)

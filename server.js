@@ -18,10 +18,9 @@ const uploadRoutes = require('./src/routes/uploadRoutes');
 const invoiceRoutes = require('./src/routes/invoiceRoutes'); 
 const blogRoutes = require('./src/routes/blogRoutes');
 const reviewRoutes = require('./src/routes/reviewRoutes');
-
-
-
-
+const moderatorInquiryRoutes = require('./src/routes/moderatorInquiryRoutes');
+const searchRoutes = require('./src/routes/searchRoutes');
+const contactRoutes = require('./src/routes/contactRoutes');
 
 // Initialize Express app
 const app = express();
@@ -105,6 +104,9 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/moderator/inquiries', moderatorInquiryRoutes);
+app.use('/api/search', searchRoutes);
+app.use('/api/contact', contactRoutes);
 
 // Basic test route
 app.get('/api/test', (req, res) => {

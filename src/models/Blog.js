@@ -139,7 +139,8 @@ blogSchema.pre('save', function() {
 });
 
 // Index for search
-blogSchema.index({ title: 'text', excerpt: 'text', content: 'text' });
+blogSchema.index({ title: 'text', author: 'text', content: 'text', excerpt: 'text' });
+
 blogSchema.index({ category: 1, featured: 1, isActive: 1 });
 blogSchema.index({ publishDate: -1 });
 

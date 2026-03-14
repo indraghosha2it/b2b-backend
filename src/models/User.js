@@ -221,11 +221,33 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+   otp: {
+    type: String,
+    select: false
+  },
+  otpExpiry: {
+    type: Date,
+    select: false
+  },
+  registrationStatus: {
+    type: String,
+    enum: ['pending', 'verified', 'completed'],
+    default: 'pending'
+  },
   emailVerified: {
     type: Boolean,
     default: false
   },
   emailVerificationToken: String,
+  // Add these fields for password reset
+  resetPasswordOTP: {
+    type: String,
+    select: false
+  },
+  resetPasswordOTPExpiry: {
+    type: Date,
+    select: false
+  },
   resetPasswordToken: String,
   resetPasswordExpires: Date,
   lastLogin: {

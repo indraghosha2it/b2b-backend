@@ -286,6 +286,68 @@ const getBlogs = async (req, res) => {
 // @desc    Get all blog posts (Admin/Moderator view - includes inactive)
 // @route   GET /api/admin/blogs
 // @access  Private (Moderator/Admin)
+// const getAllBlogsAdmin = async (req, res) => {
+//   try {
+//     const { 
+//       page = 1, 
+//       limit = 20, 
+//       category, 
+//       search,
+//       status,
+//       sort = '-createdAt'
+//     } = req.query;
+
+//     // Build query
+//     const query = {};
+
+//     // Filter by category
+//     if (category) {
+//       query.category = category;
+//     }
+
+//     // Filter by status (active/inactive)
+//     if (status === 'active') {
+//       query.isActive = true;
+//     } else if (status === 'inactive') {
+//       query.isActive = false;
+//     }
+
+//     // Search by text
+//     if (search) {
+//       query.$text = { $search: search };
+//     }
+
+//     const blogs = await Blog.find(query)
+//       .populate('createdBy', 'contactPerson email role')
+//       .populate('updatedBy', 'contactPerson email role')
+//       .sort(sort)
+//       .limit(parseInt(limit))
+//       .skip((parseInt(page) - 1) * parseInt(limit));
+
+//     const total = await Blog.countDocuments(query);
+
+//     res.json({
+//       success: true,
+//       data: blogs,
+//       pagination: {
+//         total,
+//         page: parseInt(page),
+//         pages: Math.ceil(total / parseInt(limit)),
+//         limit: parseInt(limit)
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Get admin blogs error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while fetching blogs'
+//     });
+//   }
+// };
+
+// @desc    Get all blog posts (Admin/Moderator view - includes inactive)
+// @route   GET /api/admin/blogs
+// @access  Private (Moderator/Admin)
 const getAllBlogsAdmin = async (req, res) => {
   try {
     const { 
@@ -301,7 +363,7 @@ const getAllBlogsAdmin = async (req, res) => {
     const query = {};
 
     // Filter by category
-    if (category) {
+    if (category && category !== 'all') {
       query.category = category;
     }
 
@@ -312,10 +374,23 @@ const getAllBlogsAdmin = async (req, res) => {
       query.isActive = false;
     }
 
-    // Search by text
-    if (search) {
-      query.$text = { $search: search };
+    // Search by text - FIXED VERSION
+    if (search && search.trim()) {
+      // Option 1: Using regex search (more flexible, doesn't require text index)
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query.$or = [
+        { title: searchRegex },
+        { author: searchRegex },
+        { excerpt: searchRegex },
+        { content: searchRegex },
+        { tags: { $in: [searchRegex] } }
+      ];
+      
+      // Option 2: If you prefer text search (requires text index)
+      // query.$text = { $search: search };
     }
+
+    console.log('Blog search query:', { search, query }); // Debug log
 
     const blogs = await Blog.find(query)
       .populate('createdBy', 'contactPerson email role')
@@ -329,12 +404,10 @@ const getAllBlogsAdmin = async (req, res) => {
     res.json({
       success: true,
       data: blogs,
-      pagination: {
-        total,
-        page: parseInt(page),
-        pages: Math.ceil(total / parseInt(limit)),
-        limit: parseInt(limit)
-      }
+      total,
+      pages: Math.ceil(total / parseInt(limit)),
+      page: parseInt(page),
+      limit: parseInt(limit)
     });
   } catch (error) {
     console.error('Get admin blogs error:', error);

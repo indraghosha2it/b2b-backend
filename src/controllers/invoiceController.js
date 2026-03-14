@@ -801,14 +801,116 @@ const getNextInvoiceNumber = async (req, res) => {
 
 
 
+// const getAllInvoices = async (req, res) => {
+//   try {
+//     const {
+//       page = 1,
+//       limit = 10,
+//       paymentStatus,
+//       startDate,
+//       endDate,
+//       search,
+//       inquiryId
+//     } = req.query;
+
+//     const filter = {};
+
+//     if (inquiryId) filter.inquiryId = inquiryId;
+//     if (paymentStatus) filter.paymentStatus = paymentStatus;
+
+//     if (startDate || endDate) {
+//       filter.createdAt = {};
+//       if (startDate) filter.createdAt.$gte = new Date(startDate);
+//       if (endDate) filter.createdAt.$lte = new Date(endDate);
+//     }
+
+//     if (search) {
+//       filter.$or = [
+//         { invoiceNumber: { $regex: search, $options: 'i' } },
+//         { 'customer.companyName': { $regex: search, $options: 'i' } },
+//         { 'customer.contactPerson': { $regex: search, $options: 'i' } },
+//         { 'customer.email': { $regex: search, $options: 'i' } }
+//       ];
+//     }
+
+//     const skip = (parseInt(page) - 1) * parseInt(limit);
+
+//     const invoices = await Invoice.find(filter)
+//       .populate('userId', 'companyName email')
+//       .populate('createdBy', 'contactPerson email')
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(parseInt(limit));
+
+//     const total = await Invoice.countDocuments(filter);
+
+//     // Get statistics - REMOVED overdue
+//     const stats = await Invoice.aggregate([
+//       {
+//         $group: {
+//           _id: '$paymentStatus',
+//           count: { $sum: 1 },
+//           totalValue: { $sum: '$finalTotal' }
+//         }
+//       }
+//     ]);
+
+//     const totalRevenue = await Invoice.aggregate([
+//       {
+//         $match: {
+//           paymentStatus: 'paid'
+//         }
+//       },
+//       {
+//         $group: {
+//           _id: null,
+//           total: { $sum: '$finalTotal' }
+//         }
+//       }
+//     ]);
+
+//     res.json({
+//       success: true,
+//       data: {
+//         invoices,
+//         stats,
+//         totalRevenue: totalRevenue[0]?.total || 0,
+//         pagination: {
+//           page: parseInt(page),
+//           limit: parseInt(limit),
+//           total,
+//           pages: Math.ceil(total / parseInt(limit))
+//         }
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Get invoices error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Error fetching invoices'
+//     });
+//   }
+// };
+
+// @desc    Get single invoice by ID (Admin & Customer)
+// @route   GET /api/invoices/:id
+// @access  Private
+
+// @desc    Get all invoices (Admin only)
+// @route   GET /api/invoices
+// @access  Private/Admin
+
+// @desc    Get all invoices (Admin only)
+// @route   GET /api/invoices
+// @access  Private/Admin
 const getAllInvoices = async (req, res) => {
   try {
     const {
       page = 1,
       limit = 10,
       paymentStatus,
-      startDate,
-      endDate,
+      year,
+      month,
       search,
       inquiryId
     } = req.query;
@@ -818,10 +920,29 @@ const getAllInvoices = async (req, res) => {
     if (inquiryId) filter.inquiryId = inquiryId;
     if (paymentStatus) filter.paymentStatus = paymentStatus;
 
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    // Apply date filter based on year/month
+    if (year) {
+      if (month) {
+        // Filter by specific month and year
+        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
+        
+        filter.invoiceDate = {
+          $gte: startDate,
+          $lte: endDate
+        };
+        console.log(`📅 Filtering by month: ${month}/${year}`, { startDate, endDate });
+      } else {
+        // Filter by specific year
+        const startDate = new Date(parseInt(year), 0, 1);
+        const endDate = new Date(parseInt(year), 11, 31, 23, 59, 59);
+        
+        filter.invoiceDate = {
+          $gte: startDate,
+          $lte: endDate
+        };
+        console.log(`📅 Filtering by year: ${year}`, { startDate, endDate });
+      }
     }
 
     if (search) {
@@ -835,6 +956,7 @@ const getAllInvoices = async (req, res) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
+    // Get paginated invoices
     const invoices = await Invoice.find(filter)
       .populate('userId', 'companyName email')
       .populate('createdBy', 'contactPerson email')
@@ -844,37 +966,58 @@ const getAllInvoices = async (req, res) => {
 
     const total = await Invoice.countDocuments(filter);
 
-    // Get statistics - REMOVED overdue
-    const stats = await Invoice.aggregate([
-      {
-        $group: {
-          _id: '$paymentStatus',
-          count: { $sum: 1 },
-          totalValue: { $sum: '$finalTotal' }
-        }
+    // Get ALL invoices with the same filter (for stats) - WITHOUT PAGINATION
+    const allInvoices = await Invoice.find(filter);
+    
+    // Calculate stats from all invoices - This is what the frontend expects
+    const paid = allInvoices.filter(i => i.paymentStatus === 'paid').length;
+    const partial = allInvoices.filter(i => i.paymentStatus === 'partial').length;
+    const unpaid = allInvoices.filter(i => i.paymentStatus === 'unpaid').length;
+    const overpaid = allInvoices.filter(i => i.paymentStatus === 'overpaid').length;
+    const cancelled = allInvoices.filter(i => i.paymentStatus === 'cancelled').length;
+    
+    // Calculate expired count
+    const expired = allInvoices.filter(inv => {
+      if (inv.paymentStatus === 'paid' || inv.paymentStatus === 'cancelled' || inv.paymentStatus === 'overpaid') {
+        return false;
       }
-    ]);
+      const today = new Date();
+      const dueDate = new Date(inv.dueDate);
+      today.setHours(0, 0, 0, 0);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate < today;
+    }).length;
 
-    const totalRevenue = await Invoice.aggregate([
-      {
-        $match: {
-          paymentStatus: 'paid'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$finalTotal' }
-        }
-      }
-    ]);
+    // Create stats object in the format frontend expects
+    const statsArray = [
+      { _id: 'paid', count: paid },
+      { _id: 'partial', count: partial },
+      { _id: 'unpaid', count: unpaid },
+      { _id: 'overpaid', count: overpaid },
+      { _id: 'cancelled', count: cancelled }
+    ];
+
+    // Calculate total revenue
+    const totalRevenue = allInvoices
+      .filter(i => i.paymentStatus === 'paid')
+      .reduce((sum, i) => sum + (i.finalTotal || 0), 0);
+
+    console.log('📊 Stats calculated:', {
+      paid,
+      partial,
+      unpaid,
+      overpaid,
+      cancelled,
+      expired,
+      total: allInvoices.length
+    });
 
     res.json({
       success: true,
       data: {
         invoices,
-        stats,
-        totalRevenue: totalRevenue[0]?.total || 0,
+        stats: statsArray, // Send stats array as expected by frontend
+        totalRevenue,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -892,9 +1035,48 @@ const getAllInvoices = async (req, res) => {
   }
 };
 
-// @desc    Get single invoice by ID (Admin & Customer)
-// @route   GET /api/invoices/:id
-// @access  Private
+// @desc    Get all invoices without pagination (for stats) - KEEP THIS FOR FUTURE USE
+// @route   GET /api/invoices/all
+// @access  Private/Admin
+// @desc    Get all invoices without pagination (for stats)
+// @route   GET /api/invoices/all
+// @access  Private/Admin
+const getAllInvoicesForStats = async (req, res) => {
+  try {
+    const { year, month } = req.query;
+
+    const filter = {};
+
+    // Apply date filter based on year/month
+    if (year) {
+      if (month) {
+        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
+        filter.invoiceDate = { $gte: startDate, $lte: endDate };
+      } else {
+        const startDate = new Date(parseInt(year), 0, 1);
+        const endDate = new Date(parseInt(year), 11, 31, 23, 59, 59);
+        filter.invoiceDate = { $gte: startDate, $lte: endDate };
+      }
+    }
+
+    const invoices = await Invoice.find(filter)
+      .select('invoiceNumber paymentStatus finalTotal amountPaid dueDate invoiceDate')
+      .sort({ invoiceDate: -1 });
+
+    res.json({
+      success: true,
+      data: invoices
+    });
+  } catch (error) {
+    console.error('Get all invoices for stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error fetching invoices'
+    });
+  }
+};
+
 const getInvoiceById = async (req, res) => {
   try {
     let invoice;
@@ -1360,6 +1542,7 @@ const cancelInvoice = async (req, res) => {
 module.exports = {
   createInvoice,
   getAllInvoices,
+  getAllInvoicesForStats,
   getInvoiceById,
   getMyInvoices,
   updateInvoice,

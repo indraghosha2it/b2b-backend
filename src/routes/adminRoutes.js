@@ -7,12 +7,14 @@ const {
   updateUser, 
   deleteUser,
   getCustomers,  // Add this
-  deleteCustomer // Add this
+  deleteCustomer ,
+  createUser// Add this
 } = require('../controllers/adminController');
 // All routes are protected and require admin role
 router.use(protect, isAdmin);
 
 router.get('/users', getUsers);
+router.post('/users', createUser);
 router.put('/users/:id', updateUser);
 router.delete('/users/:id', deleteUser);
 

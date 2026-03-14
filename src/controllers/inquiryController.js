@@ -786,6 +786,7 @@
 
 const Inquiry = require('../models/Inquiry');
 const InquiryCart = require('../models/InquiryCart');
+const Invoice = require('../models/Invoice');
 const { sendStatusUpdateEmail } = require('../utils/emailService');
 
 // @desc    Submit inquiry from cart
@@ -1150,32 +1151,128 @@ const acceptQuote = async (req, res) => {
 // @desc    Get all inquiries (Admin)
 // @route   GET /api/admin/inquiries
 // @access  Private/Admin
+// const getAllInquiries = async (req, res) => {
+//   try {
+//     const { 
+//       page = 1, 
+//       limit = 10, 
+//       status, 
+//       startDate, 
+//       endDate,
+//       search 
+//     } = req.query;
+
+//     const filter = {};
+    
+//     if (status) filter.status = status;
+    
+//     if (startDate || endDate) {
+//       filter.createdAt = {};
+//       if (startDate) filter.createdAt.$gte = new Date(startDate);
+//       if (endDate) filter.createdAt.$lte = new Date(endDate);
+//     }
+
+//     if (search) {
+//       filter.$or = [
+//         { inquiryNumber: { $regex: search, $options: 'i' } },
+//         { 'userDetails.companyName': { $regex: search, $options: 'i' } },
+//         { 'userDetails.contactPerson': { $regex: search, $options: 'i' } }
+//       ];
+//     }
+
+//     const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+//     const inquiries = await Inquiry.find(filter)
+//       .populate('userId', 'companyName email role')
+//       .sort({ createdAt: -1 })
+//       .skip(skip)
+//       .limit(parseInt(limit));
+
+//     const total = await Inquiry.countDocuments(filter);
+
+//     // Get statistics
+//     const stats = await Inquiry.aggregate([
+//       {
+//         $group: {
+//           _id: '$status',
+//           count: { $sum: 1 },
+//           totalValue: { $sum: '$subtotal' }
+//         }
+//       }
+//     ]);
+
+//     res.json({
+//       success: true,
+//       data: {
+//         inquiries,
+//         stats,
+//         pagination: {
+//           page: parseInt(page),
+//           limit: parseInt(limit),
+//           total,
+//           pages: Math.ceil(total / parseInt(limit))
+//         }
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Get inquiries error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Error fetching inquiries'
+//     });
+//   }
+// };
+// @desc    Get all inquiries (Admin)
+// @route   GET /api/admin/inquiries
+// @access  Private/Admin
 const getAllInquiries = async (req, res) => {
   try {
     const { 
       page = 1, 
       limit = 10, 
       status, 
-      startDate, 
-      endDate,
+      year,
+      month,
       search 
     } = req.query;
 
     const filter = {};
     
-    if (status) filter.status = status;
+    // Apply status filter
+    if (status && status !== 'all') {
+      filter.status = status.toLowerCase();
+    }
     
-    if (startDate || endDate) {
-      filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate);
-      if (endDate) filter.createdAt.$lte = new Date(endDate);
+    // Apply date filter based on year/month
+    if (year) {
+      if (month) {
+        // Filter by specific month and year
+        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
+        
+        filter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+      } else {
+        // Filter by specific year
+        const startDate = new Date(parseInt(year), 0, 1);
+        const endDate = new Date(parseInt(year), 11, 31, 23, 59, 59);
+        
+        filter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+      }
     }
 
+    // Apply search filter
     if (search) {
       filter.$or = [
         { inquiryNumber: { $regex: search, $options: 'i' } },
         { 'userDetails.companyName': { $regex: search, $options: 'i' } },
-        { 'userDetails.contactPerson': { $regex: search, $options: 'i' } }
+        { 'userDetails.contactPerson': { $regex: search, $options: 'i' } },
+        { 'userDetails.email': { $regex: search, $options: 'i' } }
       ];
     }
 
@@ -1189,16 +1286,21 @@ const getAllInquiries = async (req, res) => {
 
     const total = await Inquiry.countDocuments(filter);
 
-    // Get statistics
-    const stats = await Inquiry.aggregate([
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-          totalValue: { $sum: '$subtotal' }
-        }
-      }
-    ]);
+    // Get ALL inquiries for stats (with same date filter but no pagination)
+    const allInquiriesFilter = { ...filter };
+    const allInquiries = await Inquiry.find(allInquiriesFilter);
+
+    // Calculate stats from all inquiries
+    const stats = {
+      total: allInquiries.length,
+      submitted: allInquiries.filter(i => i.status === 'submitted').length,
+      quoted: allInquiries.filter(i => i.status === 'quoted').length,
+      accepted: allInquiries.filter(i => i.status === 'accepted').length,
+      invoiced: allInquiries.filter(i => i.status === 'invoiced').length,
+      paid: allInquiries.filter(i => i.status === 'paid').length,
+      cancelled: allInquiries.filter(i => i.status === 'cancelled').length,
+      totalValue: allInquiries.reduce((sum, i) => sum + (i.subtotal || 0), 0)
+    };
 
     res.json({
       success: true,
@@ -1215,6 +1317,54 @@ const getAllInquiries = async (req, res) => {
     });
   } catch (error) {
     console.error('Get inquiries error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error fetching inquiries'
+    });
+  }
+};
+// @desc    Get all inquiries without pagination (for stats)
+// @route   GET /api/admin/inquiries/all
+// @access  Private/Admin
+const getAllInquiriesForStats = async (req, res) => {
+  try {
+    const { year, month } = req.query;
+
+    const filter = {};
+    
+    // Apply date filter based on year/month
+    if (year) {
+      if (month) {
+        // Filter by specific month and year
+        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
+        
+        filter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+      } else {
+        // Filter by specific year
+        const startDate = new Date(parseInt(year), 0, 1);
+        const endDate = new Date(parseInt(year), 11, 31, 23, 59, 59);
+        
+        filter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+      }
+    }
+
+    const inquiries = await Inquiry.find(filter)
+      .select('inquiryNumber userDetails companyName status subtotal createdAt')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: inquiries
+    });
+  } catch (error) {
+    console.error('Get all inquiries for stats error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Error fetching inquiries'
@@ -1419,46 +1569,302 @@ const addInternalNote = async (req, res) => {
   }
 };
 
-// @desc    Get dashboard statistics (Admin)
+// const getDashboardStats = async (req, res) => {
+//   try {
+//     const now = new Date();
+//     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+//     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+//     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+//     console.log('Fetching dashboard stats...');
+
+//     const [
+//       totalInquiries,
+//       pendingQuotations,
+//       unpaidInvoicesCount,
+//       partialInvoicesCount, // Added partial invoices count
+//       monthlyRevenue,
+//       recentInquiries,
+//       statusBreakdown,
+//       totalInvoices,
+//       paidInvoicesCount,
+//       lastMonthRevenue
+//     ] = await Promise.all([
+//       // Total inquiries
+//       Inquiry.countDocuments(),
+      
+//       // Pending quotations (submitted status)
+//       Inquiry.countDocuments({ status: 'submitted' }),
+      
+//       // Unpaid invoices from Invoice model
+//       Invoice.countDocuments({ paymentStatus: 'unpaid' }),
+      
+//       // Partial payment invoices from Invoice model
+//       Invoice.countDocuments({ paymentStatus: 'partial' }),
+      
+//       // Monthly revenue from PAID invoices
+//       Invoice.aggregate([
+//         {
+//           $match: {
+//             paymentStatus: 'paid',
+//             createdAt: { $gte: startOfMonth }
+//           }
+//         },
+//         {
+//           $group: {
+//             _id: null,
+//             total: { $sum: '$finalTotal' }
+//           }
+//         }
+//       ]),
+      
+//       // Recent inquiries
+//       Inquiry.find()
+//         .sort({ createdAt: -1 })
+//         .limit(5)
+//         .select('inquiryNumber userDetails.companyName status subtotal createdAt items')
+//         .lean(),
+      
+//       // Status breakdown from inquiries
+//       Inquiry.aggregate([
+//         {
+//           $group: {
+//             _id: '$status',
+//             count: { $sum: 1 },
+//             value: { $sum: '$subtotal' }
+//           }
+//         }
+//       ]),
+      
+//       // Total invoices count
+//       Invoice.countDocuments(),
+      
+//       // Paid invoices count
+//       Invoice.countDocuments({ paymentStatus: 'paid' }),
+      
+//       // Last month revenue from paid invoices
+//       Invoice.aggregate([
+//         {
+//           $match: {
+//             paymentStatus: 'paid',
+//             createdAt: {
+//               $gte: startOfLastMonth,
+//               $lte: endOfLastMonth
+//             }
+//           }
+//         },
+//         {
+//           $group: {
+//             _id: null,
+//             total: { $sum: '$finalTotal' }
+//           }
+//         }
+//       ])
+//     ]);
+
+//     const currentMonthTotal = monthlyRevenue[0]?.total || 0;
+//     const lastMonthTotal = lastMonthRevenue[0]?.total || 0;
+    
+//     const revenueGrowth = lastMonthTotal > 0 
+//       ? ((currentMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 
+//       : 0;
+
+//     // Format status breakdown as object
+//     const breakdownObj = {};
+//     statusBreakdown.forEach(item => {
+//       breakdownObj[item._id] = {
+//         count: item.count,
+//         value: item.value
+//       };
+//     });
+
+//     // Also fetch recent invoices with payment status
+//     const recentInvoices = await Invoice.find()
+//       .sort({ createdAt: -1 })
+//       .limit(5)
+//       .select('invoiceNumber customer.companyName paymentStatus finalTotal createdAt')
+//       .lean();
+
+//     // Calculate invoice status counts including partial
+//     const invoiceStatusCounts = {
+//       paid: paidInvoicesCount,
+//       partial: partialInvoicesCount,
+//       unpaid: unpaidInvoicesCount,
+//       total: totalInvoices
+//     };
+
+//     const responseData = {
+//       overview: {
+//         totalInquiries,
+//         pendingQuotations,
+//         unpaidInvoices: unpaidInvoicesCount,
+//         partialInvoices: partialInvoicesCount, // Added to overview
+//         monthlyRevenue: currentMonthTotal,
+//         revenueGrowth: Math.round(revenueGrowth * 100) / 100,
+//         totalInvoices,
+//         paidInvoices: paidInvoicesCount,
+//         invoiceStatusCounts // Added full invoice status breakdown
+//       },
+//       recentInquiries,
+//       recentInvoices,
+//       statusBreakdown: breakdownObj
+//     };
+
+//     console.log('Dashboard stats response:', responseData);
+
+//     res.json({
+//       success: true,
+//       data: responseData
+//     });
+//   } catch (error) {
+//     console.error('❌ Get dashboard stats error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Error fetching dashboard statistics'
+//     });
+//   }
+// };
+
+// @desc    Delete inquiry (Admin)
+// @route   DELETE /api/admin/inquiries/:id
+// @access  Private/Admin
+
+
+// @desc    Get dashboard stats
+// @route   GET /api/admin/inquiries/stats/dashboard
+// @access  Private/Admin
+// @desc    Get dashboard stats
+// @route   GET /api/admin/inquiries/stats/dashboard
+// @access  Private/Admin
+// @desc    Get dashboard stats
 // @route   GET /api/admin/inquiries/stats/dashboard
 // @access  Private/Admin
 const getDashboardStats = async (req, res) => {
   try {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    const { month, year } = req.query;
+    
+    let inquiryQuery = {}; // Empty for ALL data
+    let invoiceQuery = {}; // Empty for ALL data
+    let hasDateFilter = false;
+    
+    // Only apply date filters if month/year are provided
+    if (month && year) {
+      hasDateFilter = true;
+      // Filter by specific month and year
+      const startDate = new Date(year, month - 1, 1); // month is 1-12 from frontend
+      const endDate = new Date(year, month, 0, 23, 59, 59); // Last day of month
+      
+      console.log('Filtering by month/year:', { startDate, endDate });
+      
+      inquiryQuery = {
+        createdAt: { $gte: startDate, $lte: endDate }
+      };
+
+      invoiceQuery = {
+        invoiceDate: { $gte: startDate, $lte: endDate }
+      };
+    } else if (year && !month) {
+      hasDateFilter = true;
+      // Filter by specific year
+      const startDate = new Date(year, 0, 1);
+      const endDate = new Date(year, 11, 31, 23, 59, 59);
+      
+      console.log('Filtering by year:', { startDate, endDate });
+      
+      inquiryQuery = {
+        createdAt: { $gte: startDate, $lte: endDate }
+      };
+
+      invoiceQuery = {
+        invoiceDate: { $gte: startDate, $lte: endDate }
+      };
+    } else {
+      // NO FILTERS - return ALL data
+      console.log('No date filters - returning ALL data');
+      // Keep queries as empty objects {} to get all documents
+    }
+
+    console.log('Query:', { 
+      hasDateFilter, 
+      inquiryQuery: Object.keys(inquiryQuery).length ? inquiryQuery : 'ALL',
+      invoiceQuery: Object.keys(invoiceQuery).length ? invoiceQuery : 'ALL'
+    });
 
     const [
       totalInquiries,
       pendingQuotations,
-      unpaidInvoices,
-      monthlyRevenue,
+      unpaidInvoicesCount,
+      partialInvoicesCount,
+      overpaidInvoicesCount,
+      cancelledInvoicesCount,
+      totalRevenue,
       recentInquiries,
-      statusBreakdown
+      statusBreakdown,
+      totalInvoices,
+      paidInvoicesCount,
+      allInvoicesInPeriod
     ] = await Promise.all([
-      Inquiry.countDocuments(),
-      Inquiry.countDocuments({ status: 'submitted' }),
-      Inquiry.countDocuments({ status: 'invoiced' }),
-      Inquiry.aggregate([
+      // Total inquiries (ALL if no filters)
+      Inquiry.countDocuments(inquiryQuery),
+      
+      // Pending quotations (submitted status)
+      Inquiry.countDocuments({ 
+        ...inquiryQuery,
+        status: 'submitted'
+      }),
+      
+      // Unpaid invoices
+      Invoice.countDocuments({ 
+        ...invoiceQuery,
+        paymentStatus: 'unpaid'
+      }),
+      
+      // Partial payment invoices
+      Invoice.countDocuments({ 
+        ...invoiceQuery,
+        paymentStatus: 'partial'
+      }),
+      
+      // Overpaid invoices
+      Invoice.countDocuments({ 
+        ...invoiceQuery,
+        paymentStatus: 'overpaid'
+      }),
+      
+      // Cancelled invoices
+      Invoice.countDocuments({ 
+        ...invoiceQuery,
+        paymentStatus: 'cancelled'
+      }),
+      
+      // Total revenue from PAID invoices
+      Invoice.aggregate([
         {
           $match: {
-            status: 'paid',
-            updatedAt: { $gte: startOfMonth }
+            ...invoiceQuery,
+            paymentStatus: 'paid'
           }
         },
         {
           $group: {
             _id: null,
-            total: { $sum: '$subtotal' }
+            total: { $sum: '$finalTotal' }
           }
         }
       ]),
-      Inquiry.find()
+      
+      // Recent inquiries (LIMIT 5)
+      Inquiry.find(inquiryQuery)
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('inquiryNumber userDetails.companyName status subtotal createdAt'),
+        .select('inquiryNumber userDetails.companyName status subtotal createdAt items')
+        .lean(),
+      
+      // Status breakdown from inquiries
       Inquiry.aggregate([
+        {
+          $match: inquiryQuery
+        },
         {
           $group: {
             _id: '$status',
@@ -1466,65 +1872,139 @@ const getDashboardStats = async (req, res) => {
             value: { $sum: '$subtotal' }
           }
         }
-      ])
+      ]),
+      
+      // Total invoices count
+      Invoice.countDocuments(invoiceQuery),
+      
+      // Paid invoices count
+      Invoice.countDocuments({ 
+        ...invoiceQuery,
+        paymentStatus: 'paid'
+      }),
+      
+      // Get all invoices in the period for detailed status calculation
+      Invoice.find(invoiceQuery)
+        .select('paymentStatus finalTotal amountPaid dueDate invoiceDate')
+        .lean()
     ]);
 
-    const lastMonthRevenue = await Inquiry.aggregate([
-      {
-        $match: {
-          status: 'paid',
-          updatedAt: {
-            $gte: startOfLastMonth,
-            $lte: endOfLastMonth
+    const totalRevenueAmount = totalRevenue[0]?.total || 0;
+
+    // Format status breakdown as object
+    const breakdownObj = {};
+    statusBreakdown.forEach(item => {
+      breakdownObj[item._id] = {
+        count: item.count,
+        value: item.value
+      };
+    });
+
+    // Calculate expired invoices from all invoices in the period
+    const expiredCount = allInvoicesInPeriod.filter(inv => {
+      // Don't count paid, cancelled, or overpaid as expired
+      if (inv.paymentStatus === 'paid' || inv.paymentStatus === 'cancelled' || inv.paymentStatus === 'overpaid') {
+        return false;
+      }
+      const today = new Date();
+      const dueDate = new Date(inv.dueDate);
+      today.setHours(0, 0, 0, 0);
+      dueDate.setHours(0, 0, 0, 0);
+      return dueDate < today;
+    }).length;
+
+    // Calculate pending value (sum of due amounts for unpaid/partial invoices)
+    const pendingValue = allInvoicesInPeriod.reduce((total, invoice) => {
+      if (invoice.paymentStatus === 'unpaid' || invoice.paymentStatus === 'partial') {
+        const dueAmount = invoice.finalTotal - (invoice.amountPaid || 0);
+        return total + dueAmount;
+      }
+      return total;
+    }, 0);
+
+    // Recent invoices (LIMIT 5)
+    const recentInvoices = await Invoice.find(invoiceQuery)
+      .sort({ invoiceDate: -1 })
+      .limit(5)
+      .select('invoiceNumber customer.companyName paymentStatus finalTotal invoiceDate dueDate amountPaid')
+      .lean();
+
+    // Calculate invoice status counts
+    const invoiceStatusCounts = {
+      paid: paidInvoicesCount,
+      partial: partialInvoicesCount,
+      unpaid: unpaidInvoicesCount,
+      overpaid: overpaidInvoicesCount,
+      cancelled: cancelledInvoicesCount,
+      expired: expiredCount,
+      total: totalInvoices
+    };
+
+    // Calculate revenue growth only if we have date filters
+    let revenueGrowth = 0;
+    if (hasDateFilter && month && year) {
+      // Calculate previous period for comparison
+      const prevMonthStart = new Date(year, month - 2, 1);
+      const prevMonthEnd = new Date(year, month - 1, 0, 23, 59, 59);
+      
+      const prevMonthRevenue = await Invoice.aggregate([
+        {
+          $match: {
+            paymentStatus: 'paid',
+            invoiceDate: { $gte: prevMonthStart, $lte: prevMonthEnd }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: '$finalTotal' }
           }
         }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: '$subtotal' }
-        }
-      }
-    ]);
+      ]);
+      
+      const prevMonthTotal = prevMonthRevenue[0]?.total || 0;
+      revenueGrowth = prevMonthTotal > 0 
+        ? ((totalRevenueAmount - prevMonthTotal) / prevMonthTotal) * 100 
+        : 0;
+    }
 
-    const currentMonthTotal = monthlyRevenue[0]?.total || 0;
-    const lastMonthTotal = lastMonthRevenue[0]?.total || 0;
-    
-    const revenueGrowth = lastMonthTotal > 0 
-      ? ((currentMonthTotal - lastMonthTotal) / lastMonthTotal) * 100 
-      : 0;
+    const responseData = {
+      overview: {
+        totalInquiries,
+        pendingQuotations,
+        unpaidInvoices: unpaidInvoicesCount,
+        partialInvoices: partialInvoicesCount,
+        overpaidInvoices: overpaidInvoicesCount,
+        cancelledInvoices: cancelledInvoicesCount,
+        expiredInvoices: expiredCount,
+        monthlyRevenue: totalRevenueAmount,
+        revenueGrowth: Math.round(revenueGrowth * 100) / 100,
+        totalInvoices,
+        paidInvoices: paidInvoicesCount,
+        pendingValue,
+        invoiceStatusCounts
+      },
+      recentInquiries,
+      recentInvoices,
+      statusBreakdown: breakdownObj
+    };
+
+    console.log('Dashboard stats response:', JSON.stringify(responseData, null, 2));
 
     res.json({
       success: true,
-      data: {
-        overview: {
-          totalInquiries,
-          pendingQuotations,
-          unpaidInvoices,
-          monthlyRevenue: currentMonthTotal,
-          revenueGrowth: Math.round(revenueGrowth * 100) / 100
-        },
-        recentInquiries,
-        statusBreakdown: statusBreakdown.reduce((acc, item) => {
-          acc[item._id] = {
-            count: item.count,
-            value: item.value
-          };
-          return acc;
-        }, {})
-      }
+      data: responseData
     });
   } catch (error) {
-    console.error('Get dashboard stats error:', error);
+    console.error('❌ Get dashboard stats error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Error fetching dashboard statistics'
     });
   }
 };
-// @desc    Delete inquiry (Admin)
-// @route   DELETE /api/admin/inquiries/:id
-// @access  Private/Admin
+
+
 const deleteInquiry = async (req, res) => {
   try {
     const inquiry = await Inquiry.findById(req.params.id);
@@ -1561,6 +2041,122 @@ const deleteInquiry = async (req, res) => {
   }
 };
 
+// @desc    Get all inquiries for moderator (view only)
+// @route   GET /api/moderator/inquiries
+// @access  Private/Moderator
+const getModeratorInquiries = async (req, res) => {
+  console.log('📋 getModeratorInquiries called with query:', req.query); // ADD THIS LINE
+  
+  try {
+    const { 
+      page = 1, 
+      limit = 10, 
+      status,
+      year,
+      month,
+      search 
+    } = req.query;
+
+    console.log('📅 Date filters - year:', year, 'month:', month); // ADD THIS LINE
+
+    const filter = {};
+    
+    // Apply status filter
+    if (status && status !== 'all') {
+      filter.status = status.toLowerCase();
+    }
+    
+    // Apply date filter based on year/month
+    if (year) {
+      if (month) {
+        // Filter by specific month and year
+        const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
+        
+        filter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+        console.log(`📅 Moderator filtering by month: ${month}/${year}`, { startDate, endDate });
+      } else {
+        // Filter by specific year
+        const startDate = new Date(parseInt(year), 0, 1);
+        const endDate = new Date(parseInt(year), 11, 31, 23, 59, 59);
+        
+        filter.createdAt = {
+          $gte: startDate,
+          $lte: endDate
+        };
+        console.log(`📅 Moderator filtering by year: ${year}`, { startDate, endDate });
+      }
+    }
+
+    // Apply search filter
+    if (search) {
+      filter.$or = [
+        { inquiryNumber: { $regex: search, $options: 'i' } },
+        { 'userDetails.companyName': { $regex: search, $options: 'i' } },
+        { 'userDetails.contactPerson': { $regex: search, $options: 'i' } },
+        { 'userDetails.email': { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    console.log('🔍 Final filter:', JSON.stringify(filter, null, 2));
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Get paginated inquiries for display
+    const inquiries = await Inquiry.find(filter)
+      .populate('userId', 'companyName email role')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Inquiry.countDocuments(filter);
+
+    console.log(`📊 Found ${inquiries.length} inquiries (page ${page}), total: ${total}`);
+
+    // Get ALL inquiries with the same filter for stats (no pagination)
+    const allInquiries = await Inquiry.find(filter);
+    
+    // Calculate stats from all inquiries
+    const stats = [
+      { _id: 'submitted', count: allInquiries.filter(i => i.status === 'submitted').length, totalValue: allInquiries.filter(i => i.status === 'submitted').reduce((sum, i) => sum + (i.subtotal || 0), 0) },
+      { _id: 'quoted', count: allInquiries.filter(i => i.status === 'quoted').length, totalValue: allInquiries.filter(i => i.status === 'quoted').reduce((sum, i) => sum + (i.subtotal || 0), 0) },
+      { _id: 'accepted', count: allInquiries.filter(i => i.status === 'accepted').length, totalValue: allInquiries.filter(i => i.status === 'accepted').reduce((sum, i) => sum + (i.subtotal || 0), 0) },
+      { _id: 'invoiced', count: allInquiries.filter(i => i.status === 'invoiced').length, totalValue: allInquiries.filter(i => i.status === 'invoiced').reduce((sum, i) => sum + (i.subtotal || 0), 0) },
+      { _id: 'paid', count: allInquiries.filter(i => i.status === 'paid').length, totalValue: allInquiries.filter(i => i.status === 'paid').reduce((sum, i) => sum + (i.subtotal || 0), 0) },
+      { _id: 'cancelled', count: allInquiries.filter(i => i.status === 'cancelled').length, totalValue: allInquiries.filter(i => i.status === 'cancelled').reduce((sum, i) => sum + (i.subtotal || 0), 0) }
+    ];
+
+    // Calculate total value from all inquiries
+    const totalValue = allInquiries.reduce((sum, i) => sum + (i.subtotal || 0), 0);
+
+    console.log('📈 Stats calculated:', stats);
+
+    res.json({
+      success: true,
+      data: {
+        inquiries,
+        stats,
+        totalValue,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit))
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get moderator inquiries error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error fetching inquiries'
+    });
+  }
+};
+
 module.exports = {
   // Customer endpoints
   submitInquiry,
@@ -1575,5 +2171,9 @@ module.exports = {
   updateInquiryStatus,
   addInternalNote,
   getDashboardStats,
-   deleteInquiry 
+   deleteInquiry ,
+   getAllInquiriesForStats,
+
+   // Moderator endpoint
+  getModeratorInquiries 
 };

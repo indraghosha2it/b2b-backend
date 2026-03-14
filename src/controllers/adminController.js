@@ -238,6 +238,7 @@
 
 
 const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 
 // @desc    Get all customers
 // @route   GET /api/admin/customers
@@ -382,6 +383,137 @@ const getUsers = async (req, res) => {
   }
 };
 
+
+// @desc    Create a new admin/moderator user
+// @route   POST /api/admin/users
+// @access  Private/Admin
+const createUser = async (req, res) => {
+  try {
+    const {
+      contactPerson,
+      email,
+      phone,
+      whatsapp,
+      role,
+      password,
+      companyName,
+      country,
+      address,
+      city,
+      zipCode,
+      businessType
+    } = req.body;
+
+    console.log('📝 Admin creating new user:', { email, role });
+
+    // Validate required fields
+    if (!contactPerson || !email || !phone || !password || !role) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: contactPerson, email, phone, password, and role are required'
+      });
+    }
+
+    // Validate role
+    if (!['admin', 'moderator'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Role must be either admin or moderator'
+      });
+    }
+
+    // Check if user already exists
+    const userExists = await User.findOne({ email: email.toLowerCase() });
+    if (userExists) {
+      return res.status(400).json({
+        success: false,
+        error: 'User with this email already exists'
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a valid email address'
+      });
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long'
+      });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new user (auto-verified for admin-created users)
+    const user = new User({
+      companyName: companyName || contactPerson,
+      contactPerson,
+      email: email.toLowerCase(),
+      phone,
+      whatsapp: whatsapp || '',
+      country: country || 'Not Specified',
+      address: address || 'Not Specified',
+      city: city || 'Not Specified',
+      zipCode: zipCode || 'Not Specified',
+      role,
+      password: hashedPassword,
+      businessType: businessType || 'Other',
+      // Admin created users are automatically verified
+      isActive: true,
+      emailVerified: true,
+      registrationStatus: 'completed',
+      // Track who created this user
+      createdBy: req.user._id
+    });
+
+    await user.save();
+
+    console.log('✅ User created successfully by admin:', user._id);
+
+    // Remove sensitive data from response
+    const userResponse = user.toJSON();
+
+    res.status(201).json({
+      success: true,
+      message: `${role === 'admin' ? 'Admin' : 'Moderator'} user created successfully`,
+      user: userResponse
+    });
+
+  } catch (error) {
+    console.error('❌ Error creating user:', error);
+
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email already exists'
+      });
+    }
+
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        error: messages.join(', ')
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create user. Please try again.'
+    });
+  }
+};
+
 // @desc    Update user
 // @route   PUT /api/admin/users/:id
 // @access  Private/Admin
@@ -465,6 +597,7 @@ const deleteUser = async (req, res) => {
 
 module.exports = {
   getUsers,
+  createUser,
   updateUser,
   deleteUser,
   getCustomers,

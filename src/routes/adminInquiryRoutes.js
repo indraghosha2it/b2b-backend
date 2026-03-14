@@ -4,6 +4,7 @@ const router = express.Router();
 const { protect, isAdmin } = require('../middleware/authMiddleware'); // protect + isAdmin
 const {
   getAllInquiries,
+  getAllInquiriesForStats,
   getAdminInquiryById,
   updateInquiryStatus,
   addInternalNote,
@@ -17,6 +18,7 @@ router.use(isAdmin); // or use authorize('admin')
 
 router.get('/stats/dashboard', getDashboardStats);
 router.get('/', getAllInquiries);
+router.get('/all', getAllInquiriesForStats);
 router.get('/:id', getAdminInquiryById);
 router.put('/:id/status', updateInquiryStatus);
 router.post('/:id/notes', addInternalNote);

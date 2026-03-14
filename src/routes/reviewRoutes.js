@@ -57,7 +57,8 @@ const {
   getPendingCount,
   getFeaturedReviews,
   getProductReviews,
-  getPublicReviews
+  getPublicReviews,
+  getMyProductReview
 } = require('../controllers/reviewController');
 
 // ==================== PUBLIC ROUTES (no auth required) ====================
@@ -68,6 +69,9 @@ router.get('/product/:productId', getProductReviews);
 
 // ==================== PROTECTED ROUTES (All routes below require authentication) ====================
 router.use(protect);
+
+// Get current user's review for a specific product (if any)
+router.get('/product/:productId/my-review', getMyProductReview);
 
 // Admin/Moderator routes - place these BEFORE user routes to avoid conflicts
 router.get('/admin/pending/count', isModeratorOrAdmin, getPendingCount);

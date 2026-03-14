@@ -132,6 +132,135 @@ const createReview = async (req, res) => {
 // @desc    Get all reviews (with filters)
 // @route   GET /api/reviews
 // @access  Public
+// const getReviews = async (req, res) => {
+//   try {
+//     const {
+//       page = 1,
+//       limit = 10,
+//       product,
+//       user,
+//       status,
+//       rating,
+//       isFeatured,
+//       sort = '-createdAt'
+//     } = req.query;
+
+//     // Build query
+//     const query = {};
+
+//     // Check if user is authenticated and has admin/moderator role
+//     const isAdminOrModerator = req.user && (req.user.role === 'admin' || req.user.role === 'moderator');
+    
+//     console.log('User role:', req.user?.role);
+//     console.log('Is admin/moderator:', isAdminOrModerator);
+//     console.log('Status filter from query:', status);
+    
+//     if (!isAdminOrModerator) {
+//       // Public users only see approved reviews
+//       query.status = 'approved';
+//       console.log('Public user - forcing status=approved');
+//     } else {
+//       // Admin/moderator can see all reviews based on status filter
+//       if (status) {
+//         query.status = status;
+//         console.log('Admin/moderator with status filter:', status);
+//       } else {
+//         // If no status filter, show ALL reviews (pending, approved, rejected)
+//         // Don't add any status to query
+//         console.log('Admin/moderator - showing ALL reviews (no status filter)');
+//       }
+//     }
+
+//     // Filter by product
+//     if (product) {
+//       query.product = product;
+//     }
+
+//     // Filter by user (for admin or user themselves)
+//     if (user) {
+//       // Only allow users to see their own reviews, or admin to see any
+//       if (req.user && (req.user.id === user || isAdminOrModerator)) {
+//         query.user = user;
+//       }
+//     }
+
+//     // Filter by rating
+//     if (rating) {
+//       query.rating = parseInt(rating);
+//     }
+
+//     // Filter featured
+//     if (isFeatured === 'true') {
+//       query.isFeatured = true;
+//     }
+
+//     console.log('Final query:', JSON.stringify(query));
+
+//     // Parse sort
+//     let sortOption = {};
+//     switch (sort) {
+//       case 'newest':
+//         sortOption = { createdAt: -1 };
+//         break;
+//       case 'oldest':
+//         sortOption = { createdAt: 1 };
+//         break;
+//       case 'highest':
+//         sortOption = { rating: -1 };
+//         break;
+//       case 'lowest':
+//         sortOption = { rating: 1 };
+//         break;
+//       case 'helpful':
+//         sortOption = { helpfulCount: -1 };
+//         break;
+//       default:
+//         sortOption = { createdAt: -1 };
+//     }
+
+//     const reviews = await Review.find(query)
+//       .populate('user', 'companyName contactPerson email')
+//       .populate('product', 'productName images slug')
+//       .populate('moderatedBy', 'contactPerson email')
+//       .populate('response.respondedBy', 'contactPerson email')
+//       .sort(sortOption)
+//       .limit(parseInt(limit))
+//       .skip((parseInt(page) - 1) * parseInt(limit));
+
+//     const total = await Review.countDocuments(query);
+
+//     console.log(`Found ${reviews.length} reviews out of ${total} total`);
+
+//     // Calculate average rating if product filter is applied
+//     let averageRating = null;
+//     if (product) {
+//       const avgData = await Review.getAverageRating(product);
+//       averageRating = avgData.averageRating;
+//     }
+
+//     res.json({
+//       success: true,
+//       data: reviews,
+//       averageRating,
+//       pagination: {
+//         total,
+//         page: parseInt(page),
+//         pages: Math.ceil(total / parseInt(limit)),
+//         limit: parseInt(limit)
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error('Get reviews error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while fetching reviews'
+//     });
+//   }
+// };
+// @desc    Get all reviews (with filters)
+// @route   GET /api/reviews
+// @access  Public (but with role-based filtering)
 const getReviews = async (req, res) => {
   try {
     const {
@@ -142,6 +271,7 @@ const getReviews = async (req, res) => {
       status,
       rating,
       isFeatured,
+      search, // ADD THIS LINE
       sort = '-createdAt'
     } = req.query;
 
@@ -154,6 +284,7 @@ const getReviews = async (req, res) => {
     console.log('User role:', req.user?.role);
     console.log('Is admin/moderator:', isAdminOrModerator);
     console.log('Status filter from query:', status);
+    console.log('Search term:', search); // ADD THIS LOG
     
     if (!isAdminOrModerator) {
       // Public users only see approved reviews
@@ -192,6 +323,18 @@ const getReviews = async (req, res) => {
     // Filter featured
     if (isFeatured === 'true') {
       query.isFeatured = true;
+    }
+
+    // ADD SEARCH FUNCTIONALITY HERE
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query.$or = [
+        { title: searchRegex },
+        { comment: searchRegex },
+        { userName: searchRegex },
+        { userEmail: searchRegex }
+      ];
+      console.log('Added search to query:', search);
     }
 
     console.log('Final query:', JSON.stringify(query));
@@ -825,17 +968,75 @@ const addResponse = async (req, res) => {
 // @desc    Get user's own reviews
 // @route   GET /api/reviews/user/me
 // @access  Private
+// const getMyReviews = async (req, res) => {
+//   try {
+//     const { page = 1, limit = 10 } = req.query;
+
+//     const reviews = await Review.find({ user: req.user.id })
+//       .populate('product', 'productName images slug')
+//       .sort({ createdAt: -1 })
+//       .limit(parseInt(limit))
+//       .skip((parseInt(page) - 1) * parseInt(limit));
+
+//     const total = await Review.countDocuments({ user: req.user.id });
+
+//     res.json({
+//       success: true,
+//       data: reviews,
+//       pagination: {
+//         total,
+//         page: parseInt(page),
+//         pages: Math.ceil(total / parseInt(limit)),
+//         limit: parseInt(limit)
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error('Get my reviews error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while fetching your reviews'
+//     });
+//   }
+// };
+// @desc    Get user's own reviews
+// @route   GET /api/reviews/user/me
+// @access  Private
 const getMyReviews = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { 
+      page = 1, 
+      limit = 10,
+      status,
+      search 
+    } = req.query;
 
-    const reviews = await Review.find({ user: req.user.id })
+    // Build query
+    const query = { user: req.user.id };
+
+    // Add status filter if provided
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    // Add search filter if provided
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query.$or = [
+        { title: searchRegex },
+        { comment: searchRegex }
+      ];
+    }
+
+    console.log('Get my reviews query:', JSON.stringify(query)); // Debug log
+
+    const reviews = await Review.find(query)
       .populate('product', 'productName images slug')
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
       .skip((parseInt(page) - 1) * parseInt(limit));
 
-    const total = await Review.countDocuments({ user: req.user.id });
+    const total = await Review.countDocuments(query);
 
     res.json({
       success: true,
@@ -856,7 +1057,6 @@ const getMyReviews = async (req, res) => {
     });
   }
 };
-
 // @desc    Get pending reviews count (Admin/Moderator)
 // @route   GET /api/reviews/pending/count
 // @access  Private (Admin/Moderator only)
@@ -1002,6 +1202,42 @@ const getProductReviews = async (req, res) => {
   }
 };
 
+// @desc    Get current user's review for a specific product
+// @route   GET /api/reviews/product/:productId/my-review
+// @access  Private
+const getMyProductReview = async (req, res) => {
+  try {
+    const { productId } = req.params;
+    
+    console.log('Fetching user review for product:', productId, 'user:', req.user.id);
+
+    const review = await Review.findOne({
+      product: productId,
+      user: req.user.id
+    }).populate('user', 'companyName contactPerson email')
+      .populate('response.respondedBy', 'contactPerson email')
+      .populate('moderatedBy', 'contactPerson email');
+
+    if (!review) {
+      return res.status(404).json({
+        success: false,
+        error: 'No review found'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: review
+    });
+
+  } catch (error) {
+    console.error('Get my product review error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while fetching your review'
+    });
+  }
+};
 
 module.exports = {
   createReview,
@@ -1017,5 +1253,6 @@ module.exports = {
   getPendingCount,
   getFeaturedReviews,
   getProductReviews,
-  getPublicReviews
+  getPublicReviews,
+  getMyProductReview
 };

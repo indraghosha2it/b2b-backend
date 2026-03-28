@@ -49,7 +49,10 @@ const {
   forgotPassword,
   resetPassword,
   verifyResetOTP,
-  logoutUser
+   googleAuth,
+  completeProfile,
+  logoutUser,
+  googleSignup
 } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -63,6 +66,9 @@ router.post('/reset-password/:token', resetPassword);
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-reset-otp', verifyResetOTP);
 router.post('/reset-password', resetPassword);
+router.post('/google', googleAuth);
+router.post('/complete-profile', protect, completeProfile);
+router.post('/google-signup', googleSignup);
 
 // Protected routes
 router.get('/me', protect, getMe);

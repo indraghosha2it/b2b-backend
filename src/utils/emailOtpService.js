@@ -52,9 +52,9 @@ const sendOTPEmail = async (email, otp, companyName) => {
   }
 
   const mailOptions = {
-    from: `"B2B Marketplace" <${process.env.SMTP_USER}>`,
+    from: `"Asian Clothify" <${process.env.SMTP_USER}>`,
     to: email,
-    subject: 'Verify Your Email - B2B Marketplace',
+    subject: 'Verify Your Email - Asian Clothify',
     html: `
       <!DOCTYPE html>
       <html>
@@ -68,7 +68,7 @@ const sendOTPEmail = async (email, otp, companyName) => {
           <!-- Header -->
           <div style="background: linear-gradient(135deg, #d9884e 0%, #e6a87c 100%); padding: 30px 20px; text-align: center;">
             <h1 style="color: #ffffff; margin: 0; font-size: 28px;">AsianClothify</h1>
-            <p style="color: #ffffff; margin: 10px 0 0; opacity: 0.9;">B2B Wholesale Marketplace</p>
+            <p style="color: #ffffff; margin: 10px 0 0; opacity: 0.9;">Wholesale Marketplace</p>
           </div>
           
           <!-- Content -->

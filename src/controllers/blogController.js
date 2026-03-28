@@ -507,8 +507,16 @@ const getBlogForEdit = async (req, res) => {
 // @desc    Update blog post
 // @route   PUT /api/admin/blogs/:id
 // @access  Private (Moderator/Admin)
+// @desc    Update blog post
+// @route   PUT /api/admin/blogs/:id
+// @access  Private (Moderator/Admin)
 const updateBlog = async (req, res) => {
   try {
+    console.log('📝 Update blog request received');
+    console.log('Body:', req.body);
+    console.log('Files:', req.files);
+    console.log('Params:', req.params);
+
     const blog = await Blog.findById(req.params.id);
 
     if (!blog) {
@@ -540,7 +548,7 @@ const updateBlog = async (req, res) => {
       metaDescription,
       metaKeywords,
       isActive,
-      existingThumbnails // ✅ NEW: Receive existing thumbnails that should be kept
+      existingThumbnails
     } = req.body;
 
     // Update fields if provided
@@ -612,56 +620,96 @@ const updateBlog = async (req, res) => {
 
     // Handle new featured image
     if (req.files && req.files['featuredImage'] && req.files['featuredImage'][0]) {
-      // Delete old featured image from Cloudinary
+      console.log('Processing new featured image');
+      
+      // Delete old featured image from Cloudinary if it exists
       if (blog.featuredImagePublicId) {
-        await cloudinary.uploader.destroy(blog.featuredImagePublicId);
+        try {
+          console.log('Attempting to delete old featured image:', blog.featuredImagePublicId);
+          await cloudinary.uploader.destroy(blog.featuredImagePublicId);
+          console.log('Old featured image deleted successfully');
+        } catch (err) {
+          console.error('Error deleting old featured image:', err);
+          // Continue with update even if deletion fails
+        }
       }
       
       const newImage = req.files['featuredImage'][0];
       blog.featuredImage = newImage.path;
       blog.featuredImagePublicId = newImage.filename;
+      console.log('New featured image set:', newImage.path);
     }
-     // Handle new video upload
+
+    // ========== FIXED VIDEO HANDLING ==========
     if (req.files && req.files['video'] && req.files['video'][0]) {
-      // Delete old video from Cloudinary
-      if (blog.videoPublicId) {
-        await cloudinary.uploader.destroy(blog.videoPublicId);
-      }
+      console.log('🎥 Processing new video upload');
       
+      // Store old video info before updating
+      const oldVideoPublicId = blog.videoPublicId;
+      const oldVideoUrl = blog.videoUrl;
+      
+      console.log('Old video public ID:', oldVideoPublicId);
+      console.log('Old video URL:', oldVideoUrl);
+      
+      // Get new video file
       const newVideo = req.files['video'][0];
+      console.log('New video file details:', {
+        path: newVideo.path,
+        filename: newVideo.filename,
+        size: newVideo.size,
+        mimetype: newVideo.mimetype
+      });
+      
+      // Update blog with new video FIRST
       blog.videoUrl = newVideo.path;
       blog.videoPublicId = newVideo.filename;
+      console.log('✅ Blog updated with new video');
+      
+      // Try to delete old video in the background (don't await)
+      // This way, even if deletion fails, the update still succeeds
+      if (oldVideoPublicId) {
+        console.log('🗑️ Attempting to delete old video in background:', oldVideoPublicId);
+        
+        // Use callback-based deletion to avoid blocking
+        cloudinary.uploader.destroy(oldVideoPublicId, { 
+          resource_type: 'video' 
+        }, (error, result) => {
+          if (error) {
+            console.error('❌ Background deletion of old video failed:', error);
+          } else {
+            console.log('✅ Background deletion result:', result);
+            if (result.result === 'ok') {
+              console.log('✅ Old video deleted successfully from Cloudinary');
+            } else {
+              console.log('⚠️ Old video may not have been deleted:', result);
+            }
+          }
+        });
+      }
     }
 
-    // ========== FIXED THUMBNAIL HANDLING ==========
-    
-    // Parse existing thumbnails that should be kept
-   // In updateBlog controller, update the thumbnail handling section:
-
-// Parse existing thumbnails that should be kept
-let parsedExistingThumbnails = [];
-if (existingThumbnails) {
-  try {
-    parsedExistingThumbnails = typeof existingThumbnails === 'string' 
-      ? JSON.parse(existingThumbnails) 
-      : existingThumbnails;
-    
-    // Ensure each thumbnail has the correct structure
-    parsedExistingThumbnails = parsedExistingThumbnails.map(thumb => {
-      if (typeof thumb === 'string') {
-        // Convert string URL to object
-        return {
-          url: thumb,
-          publicId: extractPublicIdFromUrl(thumb)
-        };
+    // Handle thumbnail images
+    let parsedExistingThumbnails = [];
+    if (existingThumbnails) {
+      try {
+        parsedExistingThumbnails = typeof existingThumbnails === 'string' 
+          ? JSON.parse(existingThumbnails) 
+          : existingThumbnails;
+        
+        parsedExistingThumbnails = parsedExistingThumbnails.map(thumb => {
+          if (typeof thumb === 'string') {
+            return {
+              url: thumb,
+              publicId: extractPublicIdFromUrl(thumb)
+            };
+          }
+          return thumb;
+        });
+      } catch (error) {
+        console.error('Error parsing existing thumbnails:', error);
+        parsedExistingThumbnails = [];
       }
-      return thumb;
-    });
-  } catch (error) {
-    console.error('Error parsing existing thumbnails:', error);
-    parsedExistingThumbnails = [];
-  }
-}
+    }
 
     // Find thumbnails that were removed
     const removedThumbnails = blog.thumbnailImages.filter(oldThumb => {
@@ -670,14 +718,16 @@ if (existingThumbnails) {
       );
     });
 
-    // Delete removed thumbnails from Cloudinary
+    // Delete removed thumbnails from Cloudinary (background, don't await)
     for (const thumb of removedThumbnails) {
       if (thumb.publicId) {
-        await cloudinary.uploader.destroy(thumb.publicId);
+        console.log('🗑️ Removing thumbnail in background:', thumb.publicId);
+        cloudinary.uploader.destroy(thumb.publicId, (error, result) => {
+          if (error) console.error('Error deleting thumbnail:', error);
+        });
       }
     }
 
-    // Start with the existing thumbnails that were kept
     let updatedThumbnails = [...parsedExistingThumbnails];
 
     // Add new thumbnail images if uploaded
@@ -686,16 +736,15 @@ if (existingThumbnails) {
         url: file.path,
         publicId: file.filename
       }));
-      
-      // Append new thumbnails to the kept ones
       updatedThumbnails = [...updatedThumbnails, ...newThumbnails];
+      console.log('Added new thumbnails:', newThumbnails.length);
     }
 
-    // Update blog with final thumbnail list
     blog.thumbnailImages = updatedThumbnails;
-
     blog.updatedBy = req.user.id;
+    
     await blog.save();
+    console.log('✅ Blog updated successfully');
 
     await blog.populate([
       { path: 'createdBy', select: 'contactPerson email role' },
@@ -708,16 +757,16 @@ if (existingThumbnails) {
       message: 'Blog post updated successfully'
     });
   } catch (error) {
-    console.error('Update blog error:', error);
+    console.error('❌ Update blog error:', error);
     
-    // If there are newly uploaded files, delete them
+    // If there are newly uploaded files, try to delete them
     if (req.files) {
       try {
         if (req.files['featuredImage'] && req.files['featuredImage'][0]) {
           await cloudinary.uploader.destroy(req.files['featuredImage'][0].filename);
         }
         if (req.files['video'] && req.files['video'][0]) {
-          await cloudinary.uploader.destroy(req.files['video'][0].filename);
+          await cloudinary.uploader.destroy(req.files['video'][0].filename, { resource_type: 'video' });
         }
         if (req.files['thumbnailImages']) {
           for (const file of req.files['thumbnailImages']) {

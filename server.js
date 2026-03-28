@@ -55,8 +55,8 @@ app.use(cors({
 }));
 
 // Body parsers - ADD THESE FIRST
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // ADD THIS JSON SYNTAX ERROR HANDLER - Place it after body parsers but before routes
 app.use((err, req, res, next) => {

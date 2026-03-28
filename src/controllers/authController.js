@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs'); // ADDED MISSING IMPORT
 const { generateOTP, sendOTPEmail } = require('../utils/emailOtpService');
 const { generateOTP: generateResetOTP, sendPasswordResetOTP } = require('../utils/forgetPasswordOtpService');
+// Add these imports at the top
+const admin = require('../config/firebaseAdmin');
 
 // Generate JWT Token
 const generateToken = (user) => {
@@ -635,6 +637,59 @@ const getMe = async (req, res) => {
 // @desc    Update user profile
 // @route   PUT /api/auth/profile
 // @access  Private
+// const updateProfile = async (req, res) => {
+//   try {
+//     const updates = {};
+//     const allowedUpdates = [
+//       'companyName', 
+//       'contactPerson', 
+//       'phone', 
+//       'whatsapp', 
+//       'country', 
+//       'address', 
+//       'city', 
+//       'zipCode', 
+//       'businessType',
+//       'notificationPreferences'
+//     ];
+    
+//     allowedUpdates.forEach(field => {
+//       if (req.body[field] !== undefined) {
+//         updates[field] = req.body[field];
+//       }
+//     });
+
+//     const user = await User.findByIdAndUpdate(
+//       req.user.id,
+//       updates,
+//       { new: true, runValidators: true }
+//     );
+
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     res.json({
+//       success: true,
+//       message: 'Profile updated successfully',
+//       user: user.toJSON()
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Update profile error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error'
+//     });
+//   }
+// };
+
+// @desc    Update user profile
+// @route   PUT /api/auth/profile
+// @access  Private
 const updateProfile = async (req, res) => {
   try {
     const updates = {};
@@ -648,6 +703,7 @@ const updateProfile = async (req, res) => {
       'city', 
       'zipCode', 
       'businessType',
+      'timezone',
       'notificationPreferences'
     ];
     
@@ -657,18 +713,40 @@ const updateProfile = async (req, res) => {
       }
     });
 
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      updates,
-      { new: true, runValidators: true }
-    );
-
+    // Get the user first
+    const user = await User.findById(req.user.id);
+    
     if (!user) {
       return res.status(404).json({
         success: false,
         error: 'User not found'
       });
     }
+
+    // Check if this is a Google user completing profile
+    const isGoogleUser = user.authProvider === 'google';
+    
+    // Apply updates to the user document
+    Object.keys(updates).forEach(key => {
+      user[key] = updates[key];
+    });
+
+    // If this is a Google user and all required fields are now filled,
+    // mark profile as completed
+    if (isGoogleUser) {
+      const requiredFields = ['country', 'address', 'city', 'zipCode', 'phone'];
+      const allFieldsFilled = requiredFields.every(field => 
+        user[field] && user[field] !== 'TBD' && user[field].trim() !== ''
+      );
+      
+      if (allFieldsFilled) {
+        user.profileCompleted = true;
+      }
+    }
+
+    // Save the user with validation disabled for Google users
+    const saveOptions = isGoogleUser ? { validateBeforeSave: false } : {};
+    await user.save(saveOptions);
 
     res.json({
       success: true,
@@ -678,6 +756,16 @@ const updateProfile = async (req, res) => {
 
   } catch (error) {
     console.error('❌ Update profile error:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        error: messages.join(', ')
+      });
+    }
+
     res.status(500).json({
       success: false,
       error: 'Server error'
@@ -1067,6 +1155,300 @@ const resetPassword = async (req, res) => {
   }
 };
 
+
+
+// @desc    Google Login/Signup
+// @route   POST /api/auth/google
+// @access  Public
+const googleAuth = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID token is required'
+      });
+    }
+
+    // Verify the Firebase ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { email, name, picture, uid, email_verified } = decodedToken;
+
+    // Check if user exists
+    let user = await User.findOne({ email: email.toLowerCase() });
+
+    if (user) {
+      // User exists - check if this is first Google login
+      if (!user.firebaseUid) {
+        // Link Google account to existing user
+        user.firebaseUid = uid;
+        user.authProvider = 'google';
+        user.emailVerified = user.emailVerified || email_verified;
+        await user.save();
+      }
+    } else {
+      // Create new user from Google data
+      const nameParts = name ? name.split(' ') : ['', ''];
+      const contactPerson = name || email.split('@')[0];
+      
+      // Generate a random password (user will never use it)
+      const randomPassword = Math.random().toString(36).slice(-16);
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+      user = new User({
+        companyName: req.body.companyName || `${contactPerson}'s Company`, // They can update later
+        contactPerson: contactPerson,
+        email: email.toLowerCase(),
+        phone: '', // Will need to be filled later
+        whatsapp: '',
+        country: '', // Will need to be filled later
+        address: '',
+        city: '',
+        zipCode: '',
+        role: 'customer',
+        password: hashedPassword,
+        businessType: 'Retailer',
+        isActive: true,
+        emailVerified: email_verified,
+        registrationStatus: 'completed',
+        firebaseUid: uid,
+        authProvider: 'google',
+        profilePicture: picture || ''
+      });
+
+      await user.save();
+    }
+
+    // Generate JWT token for your app
+    const token = jwt.sign(
+      { 
+        id: user._id, 
+        email: user.email,
+        role: user.role,
+        companyName: user.companyName
+      },
+      process.env.JWT_SECRET || 'your-secret-key-change-this',
+      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    );
+
+    // Check if profile is complete (needs additional info)
+    const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
+
+    res.json({
+      success: true,
+      message: 'Google authentication successful',
+      token,
+      user: user.toJSON(),
+      isProfileComplete,
+      requiresAdditionalInfo: !isProfileComplete
+    });
+
+  } catch (error) {
+    console.error('❌ Google auth error:', error);
+    
+    // Handle specific Firebase errors
+    if (error.code === 'auth/id-token-expired') {
+      return res.status(401).json({
+        success: false,
+        error: 'Google token expired'
+      });
+    }
+    
+    if (error.code === 'auth/argument-error') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid Google token'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Google authentication failed'
+    });
+  }
+};
+
+// @desc    Complete profile after Google signup
+// @route   POST /api/auth/complete-profile
+// @access  Private
+const completeProfile = async (req, res) => {
+  try {
+    const {
+      companyName,
+      phone,
+      whatsapp,
+      country,
+      address,
+      city,
+      zipCode,
+      businessType
+    } = req.body;
+
+    // Validate required fields
+    const missingFields = [];
+    if (!companyName) missingFields.push('companyName');
+    if (!phone) missingFields.push('phone');
+    if (!country) missingFields.push('country');
+    if (!address) missingFields.push('address');
+    if (!city) missingFields.push('city');
+    if (!zipCode) missingFields.push('zipCode');
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Missing required fields: ${missingFields.join(', ')}`
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Update user profile
+    user.companyName = companyName;
+    user.phone = phone;
+    user.whatsapp = whatsapp || '';
+    user.country = country;
+    user.address = address;
+    user.city = city;
+    user.zipCode = zipCode;
+    user.businessType = businessType || user.businessType;
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Profile completed successfully',
+      user: user.toJSON()
+    });
+
+  } catch (error) {
+    console.error('❌ Complete profile error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to complete profile'
+    });
+  }
+};
+// @desc    Google Signup (for new users)
+// @route   POST /api/auth/google-signup
+// @access  Public
+const googleSignup = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'ID token is required'
+      });
+    }
+
+    // Verify the Firebase ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { email, name, picture, uid, email_verified } = decodedToken;
+
+    // Check if user already exists
+    let user = await User.findOne({ email: email.toLowerCase() });
+
+    if (user) {
+      // User already exists - should login instead
+      return res.status(409).json({
+        success: false,
+        error: 'An account with this email already exists. Please login instead.',
+        existingUser: true
+      });
+    }
+
+    // Create new user from Google data
+    const nameParts = name ? name.split(' ') : ['', ''];
+    const contactPerson = name || email.split('@')[0];
+    
+    // Generate a random password (user will never use it)
+    const randomPassword = Math.random().toString(36).slice(-16);
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(randomPassword, salt);
+
+    user = new User({
+      companyName: `${contactPerson}'s Company`, // Placeholder
+      contactPerson: contactPerson,
+      email: email.toLowerCase(),
+      phone: '', // Will be filled in complete-profile
+      whatsapp: '',
+      country: '', // Will be filled in complete-profile
+      address: '',
+      city: '',
+      zipCode: '',
+      role: 'customer',
+      password: hashedPassword,
+      businessType: 'Retailer',
+      isActive: true,
+      emailVerified: email_verified,
+      registrationStatus: 'completed',
+      firebaseUid: uid,
+      authProvider: 'google',
+      profilePicture: picture || ''
+    });
+
+    await user.save();
+
+    // Generate JWT token for your app
+    const token = jwt.sign(
+      { 
+        id: user._id, 
+        email: user.email,
+        role: user.role,
+        companyName: user.companyName
+      },
+      process.env.JWT_SECRET || 'your-secret-key-change-this',
+      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    );
+
+    // Check if profile is complete (needs additional info)
+    const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
+
+    res.status(201).json({
+      success: true,
+      message: 'Google signup successful',
+      token,
+      user: user.toJSON(),
+      isNewUser: true,
+      requiresAdditionalInfo: !isProfileComplete
+    });
+
+  } catch (error) {
+    console.error('❌ Google signup error:', error);
+    
+    if (error.code === 'auth/id-token-expired') {
+      return res.status(401).json({
+        success: false,
+        error: 'Google token expired'
+      });
+    }
+    
+    if (error.code === 'auth/argument-error') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid Google token'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Google signup failed'
+    });
+  }
+};
+
+
+
 // @desc    Logout user
 // @route   POST /api/auth/logout
 // @access  Private
@@ -1090,5 +1472,8 @@ module.exports = {
   forgotPassword,
   resetPassword,
   verifyResetOTP,
+    googleAuth,
+  completeProfile,
+  googleSignup,
   logoutUser
 };

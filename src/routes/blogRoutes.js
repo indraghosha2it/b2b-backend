@@ -95,14 +95,41 @@ router.post('/',
 );
 
 // Update blog
+// router.put('/admin/:id',
+//   isModeratorOrAdmin,
+//   uploadBlogFiles([
+//     { name: 'featuredImage', maxCount: 1 },
+//     { name: 'thumbnailImages', maxCount: 10 },
+//     { name: 'paragraphImages', maxCount: 20 },
+//     { name: 'video', maxCount: 1 }
+//   ]),
+//   updateBlog
+// );
+// Update blog - with increased limits
 router.put('/admin/:id',
   isModeratorOrAdmin,
+  (req, res, next) => {
+    // Log the request
+    console.log('PUT request received for blog update');
+    next();
+  },
   uploadBlogFiles([
     { name: 'featuredImage', maxCount: 1 },
     { name: 'thumbnailImages', maxCount: 10 },
     { name: 'paragraphImages', maxCount: 20 },
     { name: 'video', maxCount: 1 }
   ]),
+  (err, req, res, next) => {
+    // Handle multer errors
+    if (err) {
+      console.error('Multer error:', err);
+      return res.status(400).json({
+        success: false,
+        error: err.message || 'File upload error'
+      });
+    }
+    next();
+  },
   updateBlog
 );
 

@@ -175,32 +175,51 @@ const userSchema = new mongoose.Schema({
   },
   phone: {
     type: String,
-    required: true,
+      required: function() {
+      // Only required if not a Google auth user or if profile is complete
+      return this.authProvider !== 'google' || this.profileCompleted;
+    },
     trim: true
   },
   whatsapp: {
     type: String,
+       required: function() {
+      // Only required if not a Google auth user or if profile is complete
+      return this.authProvider !== 'google' || this.profileCompleted;
+    },
     trim: true,
-    default: ''
+    
   },
   country: {
     type: String,
-    required: true,
+     required: function() {
+      // Only required if not a Google auth user or if profile is complete
+      return this.authProvider !== 'google' || this.profileCompleted;
+    },
     trim: true
   },
   address: {
     type: String,
-    required: true,
+      required: function() {
+      // Only required if not a Google auth user or if profile is complete
+      return this.authProvider !== 'google' || this.profileCompleted;
+    },
     trim: true
   },
   city: {
     type: String,
-    required: true,
+      required: function() {
+      // Only required if not a Google auth user or if profile is complete
+      return this.authProvider !== 'google' || this.profileCompleted;
+    },
     trim: true
   },
   zipCode: {
     type: String,
-    required: true,
+      required: function() {
+      // Only required if not a Google auth user or if profile is complete
+      return this.authProvider !== 'google' || this.profileCompleted;
+    },
     trim: true
   },
   role: {
@@ -212,11 +231,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  businessType: {
-    type: String,
-    enum: ['Retailer', 'Wholesaler', 'Distributor', 'Manufacturer', 'E-commerce', 'Boutique', 'Other'],
-    default: 'Retailer'
-  },
+  // businessType: {
+  //   type: String,
+  //   enum: ['Retailer', 'Wholesaler', 'Distributor', 'Manufacturer', 'E-commerce', 'Boutique', 'Other'],
+  //   default: 'Retailer'
+  // },
   isActive: {
     type: Boolean,
     default: true
@@ -257,6 +276,24 @@ const userSchema = new mongoose.Schema({
   loginCount: {
     type: Number,
     default: 0
+  },
+    firebaseUid: {
+    type: String,
+    sparse: true,
+    unique: true
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
+  },
+    profileCompleted: {
+    type: Boolean,
+    default: false
+  },
+  profilePicture: {
+    type: String,
+    default: ''
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

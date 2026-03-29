@@ -25,34 +25,60 @@ const contactRoutes = require('./src/routes/contactRoutes');
 // Initialize Express app
 const app = express();
 
+
 // Middleware
+// const allowedOrigins = [
+//   'http://localhost:3000',
+//   'http://localhost:3001',
+//   'https://radiant-sunburst-ded7d3.netlify.app',
+//   process.env.FRONTEND_URL // Keep this for flexibility
+// ].filter(Boolean); // Remove any undefined values
+
 // app.use(cors({
-//   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-//   credentials: true
+//   origin: function(origin, callback) {
+//     // Allow requests with no origin (like mobile apps, curl, etc)
+//     if (!origin) return callback(null, true);
+    
+//     if (allowedOrigins.indexOf(origin) === -1) {
+//       const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+//       return callback(new Error(msg), false);
+//     }
+//     return callback(null, true);
+//   },
+//   credentials: true,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+//   allowedHeaders: ['Content-Type', 'Authorization']
 // }));
-// Middleware
+
+// ========== PRODUCTION CORS CONFIGURATION ==========
 const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'https://radiant-sunburst-ded7d3.netlify.app',
-  process.env.FRONTEND_URL // Keep this for flexibility
-].filter(Boolean); // Remove any undefined values
+  'https://your-custom-domain.com', // Add if you have one
+];
 
 app.use(cors({
   origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc)
+    // Allow requests with no origin (like mobile apps, curl, server-to-server)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      console.log('❌ CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
     }
-    return callback(null, true);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400, // 24 hours cache for preflight
 }));
+
+// Handle preflight requests
+app.options('*', cors());
 
 // Body parsers - ADD THESE FIRST
 app.use(express.json({ limit: '100mb' }));

@@ -43,31 +43,16 @@ app.use(cors({
     // Allow requests with no origin (like mobile apps, curl, etc)
     if (!origin) return callback(null, true);
     
-    
-  
-    // For development, allow all origins
-    if (process.env.NODE_ENV === 'development') {
-      return callback(null, true);
-    }
-    
     if (allowedOrigins.indexOf(origin) === -1) {
-      console.warn(`CORS blocked origin: ${origin}`);
-      return callback(new Error('CORS policy violation'), false);
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
     }
-
-    // if (allowedOrigins.indexOf(origin) === -1) {
-    //   const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-    //   return callback(new Error(msg), false);
-    // }
     return callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
-// Handle preflight requests explicitly
-app.options('*', cors());
 
 // Body parsers - ADD THESE FIRST
 app.use(express.json({ limit: '100mb' }));

@@ -222,16 +222,271 @@ const { cloudinary } = require('../config/cloudinary');
 // @desc    Create new product - UPDATE THIS
 // @route   POST /api/products
 // @access  Private (Moderator/Admin)
+// const createProduct = async (req, res) => {
+//   try {
+//     console.log('Create product request received');
+//     console.log('Body:', req.body);
+//     console.log('Files:', req.files);
+
+//     const {
+//       productName,
+//       description,
+//        instruction,
+//       category,
+//       targetedCustomer,
+//       fabric,
+//       moq,
+//       pricePerUnit,
+//       quantityBasedPricing,
+//       sizes,
+//       colors,
+//       additionalInfo,
+//       // NEW FIELDS
+//       isFeatured,
+//       tags,
+//       metaSettings
+//     } = req.body;
+// console.log('Instruction received:', instruction); 
+
+//     // Validation
+//     if (!productName) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Product name is required'
+//       });
+//     }
+
+//     if (!category) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Category is required'
+//       });
+//     }
+
+//     // Check if category exists
+//     const categoryExists = await Category.findById(category);
+//     if (!categoryExists) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid category'
+//       });
+//     }
+
+//     // Check if at least one image is uploaded
+//     if (!req.files || req.files.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'At least one product image is required'
+//       });
+//     }
+
+//     // Parse JSON fields
+//     let parsedQuantityPricing = [];
+//     let parsedSizes = [];
+//     let parsedColors = [];
+//     let parsedAdditionalInfo = [];
+//     let parsedTags = [];
+//     let parsedMetaSettings = {};
+
+//     try {
+//       parsedQuantityPricing = typeof quantityBasedPricing === 'string' 
+//         ? JSON.parse(quantityBasedPricing) 
+//         : quantityBasedPricing;
+      
+//       parsedSizes = typeof sizes === 'string' 
+//         ? JSON.parse(sizes) 
+//         : sizes;
+      
+//       parsedColors = typeof colors === 'string' 
+//         ? JSON.parse(colors) 
+//         : colors;
+      
+//       if (additionalInfo) {
+//         parsedAdditionalInfo = typeof additionalInfo === 'string' 
+//           ? JSON.parse(additionalInfo) 
+//           : additionalInfo;
+//       }
+
+//       // Parse new fields
+//       if (tags) {
+//         parsedTags = typeof tags === 'string' 
+//           ? JSON.parse(tags) 
+//           : tags;
+//       }
+
+//       if (metaSettings) {
+//         parsedMetaSettings = typeof metaSettings === 'string' 
+//           ? JSON.parse(metaSettings) 
+//           : metaSettings;
+//       }
+//     } catch (error) {
+//       console.error('Error parsing JSON fields:', error);
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid data format for sizes, colors, pricing, tags, or meta settings'
+//       });
+//     }
+
+//     // Validate sizes
+//     if (!parsedSizes || parsedSizes.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'At least one size is required'
+//       });
+//     }
+
+//     // Validate colors
+//     if (!parsedColors || parsedColors.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'At least one color is required'
+//       });
+//     }
+
+//     // Validate tags if provided
+//     if (parsedTags && parsedTags.length > 0) {
+//       const validTags = [
+//         'Top Ranking', 'New Arrival', 'Top Deal', 'Best Seller',
+//         'Summer Collection', 'Winter Collection', 'Limited Edition', 'Trending'
+//       ];
+      
+//       for (const tag of parsedTags) {
+//         if (!validTags.includes(tag)) {
+//           return res.status(400).json({
+//             success: false,
+//             error: `Invalid tag: ${tag}`
+//           });
+//         }
+//       }
+//     }
+
+//     // Validate meta title length
+//     if (parsedMetaSettings.metaTitle && parsedMetaSettings.metaTitle.length > 70) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Meta title should not exceed 70 characters'
+//       });
+//     }
+
+//     // Validate meta description length
+//     if (parsedMetaSettings.metaDescription && parsedMetaSettings.metaDescription.length > 160) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Meta description should not exceed 160 characters'
+//       });
+//     }
+
+//     // Process images from Cloudinary
+//     const images = req.files.map((file, index) => ({
+//       url: file.path,
+//       publicId: file.filename,
+//       isPrimary: index === 0
+//     }));
+
+//     // Create product with all fields
+//     const product = await Product.create({
+//       productName,
+//       description: description || '',
+//         instruction: instruction || '',
+//       category,
+//       targetedCustomer: targetedCustomer || 'unisex',
+//       fabric,
+//       moq: parseInt(moq),
+//       pricePerUnit: parseFloat(pricePerUnit),
+//       quantityBasedPricing: parsedQuantityPricing,
+//       sizes: parsedSizes,
+//       colors: parsedColors,
+//       additionalInfo: parsedAdditionalInfo,
+//       // New fields
+//       isFeatured: isFeatured === 'true' || isFeatured === true,
+//       tags: parsedTags,
+//       metaSettings: parsedMetaSettings,
+//       images,
+//       createdBy: req.user.id,
+//       isActive: true
+//     });
+
+//     // Prepare embedded product data for category
+//     const embeddedProduct = {
+//       productId: product._id,
+//       productName: product.productName,
+//       slug: product.slug,
+//       description: product.description,
+//       instruction: product.instruction,
+//       targetedCustomer: product.targetedCustomer,
+//       fabric: product.fabric,
+//       images: product.images,
+//       sizes: product.sizes,
+//       colors: product.colors,
+//       moq: product.moq,
+//       pricePerUnit: product.pricePerUnit,
+//       quantityBasedPricing: product.quantityBasedPricing,
+//       additionalInfo: product.additionalInfo,
+//       isFeatured: product.isFeatured, // NEW
+//       tags: product.tags, // NEW
+//       isActive: product.isActive,
+//       createdBy: product.createdBy,
+//       createdAt: product.createdAt
+//     };
+
+//     // Add product to category's products array
+//     await Category.findByIdAndUpdate(
+//       category,
+//       {
+//         $push: { products: embeddedProduct },
+//         $inc: { productCount: 1 }
+//       },
+//       { new: true }
+//     );
+
+//     // Populate references for response
+//     await product.populate([
+//       { path: 'category', select: 'name slug' },
+//       { path: 'createdBy', select: 'contactPerson email role' }
+//     ]);
+
+//     res.status(201).json({
+//       success: true,
+//       data: product,
+//       message: 'Product created successfully'
+//     });
+//   } catch (error) {
+//     console.error('Create product error:', error);
+    
+//     // If there are uploaded files, delete them from Cloudinary
+//     if (req.files && req.files.length > 0) {
+//       try {
+//         for (const file of req.files) {
+//           await cloudinary.uploader.destroy(file.filename);
+//         }
+//       } catch (cloudinaryError) {
+//         console.error('Error deleting from Cloudinary:', cloudinaryError);
+//       }
+//     }
+    
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while creating product'
+//     });
+//   }
+// };
+
+
+
+// @desc    Create new product - MODIFIED to accept JSON with image URLs
+// @route   POST /api/products
+// @access  Private (Moderator/Admin)
+// controllers/productController.js
+
 const createProduct = async (req, res) => {
   try {
     console.log('Create product request received');
     console.log('Body:', req.body);
-    console.log('Files:', req.files);
 
     const {
       productName,
       description,
-       instruction,
+      instruction,
       category,
       targetedCustomer,
       fabric,
@@ -241,12 +496,14 @@ const createProduct = async (req, res) => {
       sizes,
       colors,
       additionalInfo,
-      // NEW FIELDS
       isFeatured,
       tags,
-      metaSettings
+      metaSettings,
+      images // This is now an array of image URLs from Cloudinary
     } = req.body;
-console.log('Instruction received:', instruction); 
+
+    console.log('Images received:', images);
+    console.log('Images array length:', images?.length);
 
     // Validation
     if (!productName) {
@@ -272,15 +529,24 @@ console.log('Instruction received:', instruction);
       });
     }
 
-    // Check if at least one image is uploaded
-    if (!req.files || req.files.length === 0) {
+    // CRITICAL: Check if at least one image URL is provided
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      console.log('No images provided. Images:', images);
       return res.status(400).json({
         success: false,
         error: 'At least one product image is required'
       });
     }
 
-    // Parse JSON fields
+    // Validate image URLs
+    if (!Array.isArray(images) || images.some(img => typeof img !== 'string')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Images must be an array of valid URLs'
+      });
+    }
+
+    // Parse JSON fields (if they come as strings)
     let parsedQuantityPricing = [];
     let parsedSizes = [];
     let parsedColors = [];
@@ -291,15 +557,15 @@ console.log('Instruction received:', instruction);
     try {
       parsedQuantityPricing = typeof quantityBasedPricing === 'string' 
         ? JSON.parse(quantityBasedPricing) 
-        : quantityBasedPricing;
+        : quantityBasedPricing || [];
       
       parsedSizes = typeof sizes === 'string' 
         ? JSON.parse(sizes) 
-        : sizes;
+        : sizes || [];
       
       parsedColors = typeof colors === 'string' 
         ? JSON.parse(colors) 
-        : colors;
+        : colors || [];
       
       if (additionalInfo) {
         parsedAdditionalInfo = typeof additionalInfo === 'string' 
@@ -307,17 +573,16 @@ console.log('Instruction received:', instruction);
           : additionalInfo;
       }
 
-      // Parse new fields
       if (tags) {
         parsedTags = typeof tags === 'string' 
           ? JSON.parse(tags) 
-          : tags;
+          : tags || [];
       }
 
       if (metaSettings) {
         parsedMetaSettings = typeof metaSettings === 'string' 
           ? JSON.parse(metaSettings) 
-          : metaSettings;
+          : metaSettings || {};
       }
     } catch (error) {
       console.error('Error parsing JSON fields:', error);
@@ -343,65 +608,33 @@ console.log('Instruction received:', instruction);
       });
     }
 
-    // Validate tags if provided
-    if (parsedTags && parsedTags.length > 0) {
-      const validTags = [
-        'Top Ranking', 'New Arrival', 'Top Deal', 'Best Seller',
-        'Summer Collection', 'Winter Collection', 'Limited Edition', 'Trending'
-      ];
-      
-      for (const tag of parsedTags) {
-        if (!validTags.includes(tag)) {
-          return res.status(400).json({
-            success: false,
-            error: `Invalid tag: ${tag}`
-          });
-        }
-      }
-    }
-
-    // Validate meta title length
-    if (parsedMetaSettings.metaTitle && parsedMetaSettings.metaTitle.length > 70) {
-      return res.status(400).json({
-        success: false,
-        error: 'Meta title should not exceed 70 characters'
-      });
-    }
-
-    // Validate meta description length
-    if (parsedMetaSettings.metaDescription && parsedMetaSettings.metaDescription.length > 160) {
-      return res.status(400).json({
-        success: false,
-        error: 'Meta description should not exceed 160 characters'
-      });
-    }
-
-    // Process images from Cloudinary
-    const images = req.files.map((file, index) => ({
-      url: file.path,
-      publicId: file.filename,
+    // Process images - Convert URLs to the format expected by the schema
+    const processedImages = images.map((url, index) => ({
+      url: url,
+      publicId: extractPublicIdFromUrl(url),
       isPrimary: index === 0
     }));
+
+    console.log('Processed images:', processedImages);
 
     // Create product with all fields
     const product = await Product.create({
       productName,
       description: description || '',
-        instruction: instruction || '',
+      instruction: instruction || '',
       category,
       targetedCustomer: targetedCustomer || 'unisex',
       fabric,
-      moq: parseInt(moq),
-      pricePerUnit: parseFloat(pricePerUnit),
+      moq: parseInt(moq) || 100,
+      pricePerUnit: parseFloat(pricePerUnit) || 0,
       quantityBasedPricing: parsedQuantityPricing,
       sizes: parsedSizes,
       colors: parsedColors,
       additionalInfo: parsedAdditionalInfo,
-      // New fields
-      isFeatured: isFeatured === 'true' || isFeatured === true,
+      isFeatured: isFeatured === true || isFeatured === 'true',
       tags: parsedTags,
       metaSettings: parsedMetaSettings,
-      images,
+      images: processedImages,
       createdBy: req.user.id,
       isActive: true
     });
@@ -422,8 +655,8 @@ console.log('Instruction received:', instruction);
       pricePerUnit: product.pricePerUnit,
       quantityBasedPricing: product.quantityBasedPricing,
       additionalInfo: product.additionalInfo,
-      isFeatured: product.isFeatured, // NEW
-      tags: product.tags, // NEW
+      isFeatured: product.isFeatured,
+      tags: product.tags,
       isActive: product.isActive,
       createdBy: product.createdBy,
       createdAt: product.createdAt
@@ -452,24 +685,374 @@ console.log('Instruction received:', instruction);
     });
   } catch (error) {
     console.error('Create product error:', error);
-    
-    // If there are uploaded files, delete them from Cloudinary
-    if (req.files && req.files.length > 0) {
-      try {
-        for (const file of req.files) {
-          await cloudinary.uploader.destroy(file.filename);
-        }
-      } catch (cloudinaryError) {
-        console.error('Error deleting from Cloudinary:', cloudinaryError);
-      }
-    }
-    
     res.status(500).json({
       success: false,
       error: error.message || 'Server error while creating product'
     });
   }
 };
+
+// Helper function to extract public ID from Cloudinary URL
+const extractPublicIdFromUrl = (url) => {
+  if (!url) return null;
+  
+  try {
+    // Extract public_id from Cloudinary URL
+    // Example URL: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/b2b-products/abc123.jpg
+    const parts = url.split('/');
+    const uploadIndex = parts.findIndex(part => part === 'upload');
+    if (uploadIndex !== -1 && uploadIndex + 2 < parts.length) {
+      // Skip the version part (v1234567890)
+      const publicIdWithExt = parts.slice(uploadIndex + 2).join('/');
+      // Remove file extension
+      const publicId = publicIdWithExt.substring(0, publicIdWithExt.lastIndexOf('.'));
+      return publicId;
+    }
+  } catch (error) {
+    console.error('Error extracting public ID from URL:', error);
+  }
+  
+  return null;
+};
+
+// Helper function to extract public ID from Cloudinary URL
+const extractPublicIdFromUrl = (url) => {
+  if (!url) return null;
+  
+  try {
+    // Extract public_id from Cloudinary URL
+    // Example URL: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/b2b-products/abc123.jpg
+    const parts = url.split('/');
+    const uploadIndex = parts.findIndex(part => part === 'upload');
+    if (uploadIndex !== -1 && uploadIndex + 2 < parts.length) {
+      // Skip the version part (v1234567890)
+      const publicIdWithExt = parts.slice(uploadIndex + 2).join('/');
+      // Remove file extension
+      const publicId = publicIdWithExt.substring(0, publicIdWithExt.lastIndexOf('.'));
+      return publicId;
+    }
+  } catch (error) {
+    console.error('Error extracting public ID from URL:', error);
+  }
+  
+  return null;
+};
+
+// @desc    Update product - MODIFIED to accept JSON with image URLs
+// @route   PUT /api/products/:id
+// @access  Private (Moderator/Admin) fix one
+// const updateProduct = async (req, res) => {
+//   try {
+//     const product = await Product.findById(req.params.id);
+
+//     if (!product) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'Product not found'
+//       });
+//     }
+
+//     // Check permissions
+//     if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
+//       return res.status(403).json({
+//         success: false,
+//         error: 'You do not have permission to update products'
+//       });
+//     }
+
+//     const {
+//       productName,
+//       description,
+//       instruction,
+//       category,
+//       targetedCustomer,
+//       fabric,
+//       moq,
+//       pricePerUnit,
+//       quantityBasedPricing,
+//       sizes,
+//       colors,
+//       additionalInfo,
+//       isFeatured,
+//       tags,
+//       metaSettings,
+//       images // Array of image URLs
+//     } = req.body;
+
+//     const oldCategory = product.category.toString();
+//     const newCategory = category || oldCategory;
+
+//     // Check if category is being changed
+//     if (category && category !== oldCategory) {
+//       const categoryExists = await Category.findById(category);
+//       if (!categoryExists) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid category'
+//         });
+//       }
+//     }
+
+//     // Update basic fields
+//     if (productName) product.productName = productName;
+//     if (description !== undefined) product.description = description;
+//     if (instruction !== undefined) product.instruction = instruction;
+//     if (category) product.category = category;
+//     if (targetedCustomer) product.targetedCustomer = targetedCustomer;
+//     if (fabric) product.fabric = fabric;
+//     if (moq) product.moq = parseInt(moq);
+//     if (pricePerUnit) product.pricePerUnit = parseFloat(pricePerUnit);
+
+//     // Update new fields
+//     if (isFeatured !== undefined) {
+//       product.isFeatured = isFeatured === 'true' || isFeatured === true;
+//     }
+
+//     // Parse and update quantity based pricing
+//     if (quantityBasedPricing) {
+//       try {
+//         const parsed = typeof quantityBasedPricing === 'string' 
+//           ? JSON.parse(quantityBasedPricing) 
+//           : quantityBasedPricing;
+//         product.quantityBasedPricing = parsed;
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid quantity based pricing format'
+//         });
+//       }
+//     }
+
+//     // Parse and update sizes
+//     if (sizes) {
+//       try {
+//         const parsed = typeof sizes === 'string' 
+//           ? JSON.parse(sizes) 
+//           : sizes;
+//         if (parsed.length === 0) {
+//           return res.status(400).json({
+//             success: false,
+//             error: 'At least one size is required'
+//           });
+//         }
+//         product.sizes = parsed;
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid sizes format'
+//         });
+//       }
+//     }
+
+//     // Parse and update colors
+//     if (colors) {
+//       try {
+//         const parsed = typeof colors === 'string' 
+//           ? JSON.parse(colors) 
+//           : colors;
+//         if (parsed.length === 0) {
+//           return res.status(400).json({
+//             success: false,
+//             error: 'At least one color is required'
+//           });
+//         }
+//         product.colors = parsed;
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid colors format'
+//         });
+//       }
+//     }
+
+//     // Parse and update additional info
+//     if (additionalInfo) {
+//       try {
+//         const parsed = typeof additionalInfo === 'string' 
+//           ? JSON.parse(additionalInfo) 
+//           : additionalInfo;
+        
+//         if (parsed && parsed.length > 0) {
+//           for (const info of parsed) {
+//             if (!info.fieldName || !info.fieldName.trim()) {
+//               return res.status(400).json({
+//                 success: false,
+//                 error: 'Field name is required for additional information'
+//               });
+//             }
+//             if (!info.fieldValue || !info.fieldValue.trim()) {
+//               return res.status(400).json({
+//                 success: false,
+//                 error: 'Field value is required for additional information'
+//               });
+//             }
+//           }
+//         }
+        
+//         product.additionalInfo = parsed;
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid additional info format'
+//         });
+//       }
+//     }
+
+//     // Parse and update tags
+//     if (tags) {
+//       try {
+//         const parsed = typeof tags === 'string' 
+//           ? JSON.parse(tags) 
+//           : tags;
+        
+//         if (parsed && parsed.length > 0) {
+//           const validTags = [
+//             'Top Ranking', 'New Arrival', 'Top Deal', 'Best Seller',
+//             'Summer Collection', 'Winter Collection', 'Limited Edition', 'Trending'
+//           ];
+          
+//           for (const tag of parsed) {
+//             if (!validTags.includes(tag)) {
+//               return res.status(400).json({
+//                 success: false,
+//                 error: `Invalid tag: ${tag}`
+//               });
+//             }
+//           }
+//         }
+        
+//         product.tags = parsed;
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid tags format'
+//         });
+//       }
+//     }
+
+//     // Parse and update meta settings
+//     if (metaSettings) {
+//       try {
+//         const parsed = typeof metaSettings === 'string' 
+//           ? JSON.parse(metaSettings) 
+//           : metaSettings;
+        
+//         if (parsed.metaTitle && parsed.metaTitle.length > 70) {
+//           return res.status(400).json({
+//             success: false,
+//             error: 'Meta title should not exceed 70 characters'
+//           });
+//         }
+
+//         if (parsed.metaDescription && parsed.metaDescription.length > 160) {
+//           return res.status(400).json({
+//             success: false,
+//             error: 'Meta description should not exceed 160 characters'
+//           });
+//         }
+
+//         product.metaSettings = {
+//           ...product.metaSettings,
+//           ...parsed
+//         };
+//       } catch (error) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid meta settings format'
+//         });
+//       }
+//     }
+
+//     // Update images if provided
+//     if (images && Array.isArray(images) && images.length > 0) {
+//       // Delete old images from Cloudinary
+//       for (const image of product.images) {
+//         if (image.publicId) {
+//           try {
+//             await cloudinary.uploader.destroy(image.publicId);
+//           } catch (cloudinaryError) {
+//             console.error('Error deleting image from Cloudinary:', cloudinaryError);
+//           }
+//         }
+//       }
+
+//       // Process new images
+//       const processedImages = images.map((url, index) => ({
+//         url: url,
+//         publicId: extractPublicIdFromUrl(url),
+//         isPrimary: index === 0
+//       }));
+      
+//       product.images = processedImages;
+//     }
+
+//     await product.save();
+
+//     // Prepare update data for embedded product in category
+//     const updateData = {
+//       productName: product.productName,
+//       description: product.description,
+//       instruction: product.instruction,
+//       targetedCustomer: product.targetedCustomer,
+//       fabric: product.fabric,
+//       sizes: product.sizes,
+//       colors: product.colors,
+//       moq: product.moq,
+//       pricePerUnit: product.pricePerUnit,
+//       quantityBasedPricing: product.quantityBasedPricing,
+//       additionalInfo: product.additionalInfo || [],
+//       images: product.images,
+//       isActive: product.isActive,
+//       isFeatured: product.isFeatured,
+//       tags: product.tags,
+//       updatedAt: new Date()
+//     };
+
+//     // If category changed, remove from old and add to new
+//     if (category && category !== oldCategory) {
+//       await removeEmbeddedProductFromCategory(oldCategory, product._id);
+      
+//       const embeddedProduct = {
+//         productId: product._id,
+//         ...updateData,
+//         createdBy: product.createdBy,
+//         createdAt: product.createdAt
+//       };
+      
+//       await Category.findByIdAndUpdate(
+//         newCategory,
+//         {
+//           $push: { products: embeddedProduct },
+//           $inc: { productCount: 1 }
+//         }
+//       );
+//     } else {
+//       await updateEmbeddedProductInCategory(newCategory, product._id, updateData);
+//     }
+
+//     await product.populate([
+//       { path: 'category', select: 'name slug' },
+//       { path: 'createdBy', select: 'contactPerson' }
+//     ]);
+
+//     res.json({
+//       success: true,
+//       data: product,
+//       message: 'Product updated successfully'
+//     });
+//   } catch (error) {
+//     console.error('Update product error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while updating product'
+//     });
+//   }
+// };
+
+// Keep all other functions (getProducts, getProductById, deleteProduct, etc.) exactly as they are
+// They don't need to be modified
+
+
 
 
 

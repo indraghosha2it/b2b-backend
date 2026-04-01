@@ -24,14 +24,14 @@ router.use(protect);
 // Create product - Moderators and Admins
 router.post('/', 
   isModeratorOrAdmin,
-  uploadMultiple('images', 4), // Field name 'images', max 4 files
+  // uploadMultiple('images', 4), 
   createProduct
 );
 
 // Update product - Moderators can update own, Admins can update any
 router.put('/:id', 
   isModeratorOrAdmin,
-  uploadMultiple('images', 4),
+  // uploadMultiple('images', 4),
   updateProduct
 );
 

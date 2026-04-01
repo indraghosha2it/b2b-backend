@@ -184,4 +184,4 @@ inquirySchema.pre('save', async function() {
 
 module.exports = mongoose.model('Inquiry', inquirySchema);
 
-module.exports = mongoose.model('Inquiry', inquirySchema);
+// module.exports = mongoose.model('Inquiry', inquirySchema);

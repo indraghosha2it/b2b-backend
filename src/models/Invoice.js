@@ -41,6 +41,11 @@ const bankDetailsSchema = new mongoose.Schema({
   bankAddress: String
 }, { _id: false });
 
+const bankingTermSchema = new mongoose.Schema({
+  title: String,
+  value: String
+}, { _id: false });
+
 const customFieldSchema = new mongoose.Schema({
   fieldName: String,
   fieldValue: String
@@ -89,6 +94,7 @@ const invoiceSchema = new mongoose.Schema({
     address: String
   },
   bankDetails: bankDetailsSchema,
+   bankingTerms: [bankingTermSchema],
   items: [invoiceItemSchema],
   
   // Invoice details

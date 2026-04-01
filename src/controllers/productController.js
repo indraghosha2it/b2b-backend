@@ -717,316 +717,7 @@ const extractPublicIdFromUrl = (url) => {
 
 
 
-// @desc    Update product - MODIFIED to accept JSON with image URLs
-// @route   PUT /api/products/:id
-// @access  Private (Moderator/Admin) fix one
-// const updateProduct = async (req, res) => {
-//   try {
-//     const product = await Product.findById(req.params.id);
 
-//     if (!product) {
-//       return res.status(404).json({
-//         success: false,
-//         error: 'Product not found'
-//       });
-//     }
-
-//     // Check permissions
-//     if (req.user.role !== 'admin' && req.user.role !== 'moderator') {
-//       return res.status(403).json({
-//         success: false,
-//         error: 'You do not have permission to update products'
-//       });
-//     }
-
-//     const {
-//       productName,
-//       description,
-//       instruction,
-//       category,
-//       targetedCustomer,
-//       fabric,
-//       moq,
-//       pricePerUnit,
-//       quantityBasedPricing,
-//       sizes,
-//       colors,
-//       additionalInfo,
-//       isFeatured,
-//       tags,
-//       metaSettings,
-//       images // Array of image URLs
-//     } = req.body;
-
-//     const oldCategory = product.category.toString();
-//     const newCategory = category || oldCategory;
-
-//     // Check if category is being changed
-//     if (category && category !== oldCategory) {
-//       const categoryExists = await Category.findById(category);
-//       if (!categoryExists) {
-//         return res.status(400).json({
-//           success: false,
-//           error: 'Invalid category'
-//         });
-//       }
-//     }
-
-//     // Update basic fields
-//     if (productName) product.productName = productName;
-//     if (description !== undefined) product.description = description;
-//     if (instruction !== undefined) product.instruction = instruction;
-//     if (category) product.category = category;
-//     if (targetedCustomer) product.targetedCustomer = targetedCustomer;
-//     if (fabric) product.fabric = fabric;
-//     if (moq) product.moq = parseInt(moq);
-//     if (pricePerUnit) product.pricePerUnit = parseFloat(pricePerUnit);
-
-//     // Update new fields
-//     if (isFeatured !== undefined) {
-//       product.isFeatured = isFeatured === 'true' || isFeatured === true;
-//     }
-
-//     // Parse and update quantity based pricing
-//     if (quantityBasedPricing) {
-//       try {
-//         const parsed = typeof quantityBasedPricing === 'string' 
-//           ? JSON.parse(quantityBasedPricing) 
-//           : quantityBasedPricing;
-//         product.quantityBasedPricing = parsed;
-//       } catch (error) {
-//         return res.status(400).json({
-//           success: false,
-//           error: 'Invalid quantity based pricing format'
-//         });
-//       }
-//     }
-
-//     // Parse and update sizes
-//     if (sizes) {
-//       try {
-//         const parsed = typeof sizes === 'string' 
-//           ? JSON.parse(sizes) 
-//           : sizes;
-//         if (parsed.length === 0) {
-//           return res.status(400).json({
-//             success: false,
-//             error: 'At least one size is required'
-//           });
-//         }
-//         product.sizes = parsed;
-//       } catch (error) {
-//         return res.status(400).json({
-//           success: false,
-//           error: 'Invalid sizes format'
-//         });
-//       }
-//     }
-
-//     // Parse and update colors
-//     if (colors) {
-//       try {
-//         const parsed = typeof colors === 'string' 
-//           ? JSON.parse(colors) 
-//           : colors;
-//         if (parsed.length === 0) {
-//           return res.status(400).json({
-//             success: false,
-//             error: 'At least one color is required'
-//           });
-//         }
-//         product.colors = parsed;
-//       } catch (error) {
-//         return res.status(400).json({
-//           success: false,
-//           error: 'Invalid colors format'
-//         });
-//       }
-//     }
-
-//     // Parse and update additional info
-//     if (additionalInfo) {
-//       try {
-//         const parsed = typeof additionalInfo === 'string' 
-//           ? JSON.parse(additionalInfo) 
-//           : additionalInfo;
-        
-//         if (parsed && parsed.length > 0) {
-//           for (const info of parsed) {
-//             if (!info.fieldName || !info.fieldName.trim()) {
-//               return res.status(400).json({
-//                 success: false,
-//                 error: 'Field name is required for additional information'
-//               });
-//             }
-//             if (!info.fieldValue || !info.fieldValue.trim()) {
-//               return res.status(400).json({
-//                 success: false,
-//                 error: 'Field value is required for additional information'
-//               });
-//             }
-//           }
-//         }
-        
-//         product.additionalInfo = parsed;
-//       } catch (error) {
-//         return res.status(400).json({
-//           success: false,
-//           error: 'Invalid additional info format'
-//         });
-//       }
-//     }
-
-//     // Parse and update tags
-//     if (tags) {
-//       try {
-//         const parsed = typeof tags === 'string' 
-//           ? JSON.parse(tags) 
-//           : tags;
-        
-//         if (parsed && parsed.length > 0) {
-//           const validTags = [
-//             'Top Ranking', 'New Arrival', 'Top Deal', 'Best Seller',
-//             'Summer Collection', 'Winter Collection', 'Limited Edition', 'Trending'
-//           ];
-          
-//           for (const tag of parsed) {
-//             if (!validTags.includes(tag)) {
-//               return res.status(400).json({
-//                 success: false,
-//                 error: `Invalid tag: ${tag}`
-//               });
-//             }
-//           }
-//         }
-        
-//         product.tags = parsed;
-//       } catch (error) {
-//         return res.status(400).json({
-//           success: false,
-//           error: 'Invalid tags format'
-//         });
-//       }
-//     }
-
-//     // Parse and update meta settings
-//     if (metaSettings) {
-//       try {
-//         const parsed = typeof metaSettings === 'string' 
-//           ? JSON.parse(metaSettings) 
-//           : metaSettings;
-        
-//         if (parsed.metaTitle && parsed.metaTitle.length > 70) {
-//           return res.status(400).json({
-//             success: false,
-//             error: 'Meta title should not exceed 70 characters'
-//           });
-//         }
-
-//         if (parsed.metaDescription && parsed.metaDescription.length > 160) {
-//           return res.status(400).json({
-//             success: false,
-//             error: 'Meta description should not exceed 160 characters'
-//           });
-//         }
-
-//         product.metaSettings = {
-//           ...product.metaSettings,
-//           ...parsed
-//         };
-//       } catch (error) {
-//         return res.status(400).json({
-//           success: false,
-//           error: 'Invalid meta settings format'
-//         });
-//       }
-//     }
-
-//     // Update images if provided
-//     if (images && Array.isArray(images) && images.length > 0) {
-//       // Delete old images from Cloudinary
-//       for (const image of product.images) {
-//         if (image.publicId) {
-//           try {
-//             await cloudinary.uploader.destroy(image.publicId);
-//           } catch (cloudinaryError) {
-//             console.error('Error deleting image from Cloudinary:', cloudinaryError);
-//           }
-//         }
-//       }
-
-//       // Process new images
-//       const processedImages = images.map((url, index) => ({
-//         url: url,
-//         publicId: extractPublicIdFromUrl(url),
-//         isPrimary: index === 0
-//       }));
-      
-//       product.images = processedImages;
-//     }
-
-//     await product.save();
-
-//     // Prepare update data for embedded product in category
-//     const updateData = {
-//       productName: product.productName,
-//       description: product.description,
-//       instruction: product.instruction,
-//       targetedCustomer: product.targetedCustomer,
-//       fabric: product.fabric,
-//       sizes: product.sizes,
-//       colors: product.colors,
-//       moq: product.moq,
-//       pricePerUnit: product.pricePerUnit,
-//       quantityBasedPricing: product.quantityBasedPricing,
-//       additionalInfo: product.additionalInfo || [],
-//       images: product.images,
-//       isActive: product.isActive,
-//       isFeatured: product.isFeatured,
-//       tags: product.tags,
-//       updatedAt: new Date()
-//     };
-
-//     // If category changed, remove from old and add to new
-//     if (category && category !== oldCategory) {
-//       await removeEmbeddedProductFromCategory(oldCategory, product._id);
-      
-//       const embeddedProduct = {
-//         productId: product._id,
-//         ...updateData,
-//         createdBy: product.createdBy,
-//         createdAt: product.createdAt
-//       };
-      
-//       await Category.findByIdAndUpdate(
-//         newCategory,
-//         {
-//           $push: { products: embeddedProduct },
-//           $inc: { productCount: 1 }
-//         }
-//       );
-//     } else {
-//       await updateEmbeddedProductInCategory(newCategory, product._id, updateData);
-//     }
-
-//     await product.populate([
-//       { path: 'category', select: 'name slug' },
-//       { path: 'createdBy', select: 'contactPerson' }
-//     ]);
-
-//     res.json({
-//       success: true,
-//       data: product,
-//       message: 'Product updated successfully'
-//     });
-//   } catch (error) {
-//     console.error('Update product error:', error);
-//     res.status(500).json({
-//       success: false,
-//       error: error.message || 'Server error while updating product'
-//     });
-//   }
-// };
 
 // Keep all other functions (getProducts, getProductById, deleteProduct, etc.) exactly as they are
 // They don't need to be modified
@@ -1288,6 +979,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 
 
 
+// before cloudinary fix 
 // const updateProduct = async (req, res) => {
 //   try {
 //     const product = await Product.findById(req.params.id);
@@ -1310,6 +1002,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //     const {
 //       productName,
 //       description,
+//       instruction, // NEW: Add instruction field
 //       category,
 //       targetedCustomer,
 //       fabric,
@@ -1319,7 +1012,6 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       sizes,
 //       colors,
 //       additionalInfo,
-//       // NEW FIELDS
 //       isFeatured,
 //       tags,
 //       metaSettings
@@ -1342,6 +1034,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //     // Update basic fields
 //     if (productName) product.productName = productName;
 //     if (description !== undefined) product.description = description;
+//     if (instruction !== undefined) product.instruction = instruction; // NEW: Update instruction
 //     if (category) product.category = category;
 //     if (targetedCustomer) product.targetedCustomer = targetedCustomer;
 //     if (fabric) product.fabric = fabric;
@@ -1537,6 +1230,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //     const updateData = {
 //       productName: product.productName,
 //       description: product.description,
+//       instruction: product.instruction, // NEW: Include instruction in update
 //       targetedCustomer: product.targetedCustomer,
 //       fabric: product.fabric,
 //       sizes: product.sizes,
@@ -1547,8 +1241,8 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       additionalInfo: product.additionalInfo || [],
 //       images: product.images,
 //       isActive: product.isActive,
-//       isFeatured: product.isFeatured, // NEW
-//       tags: product.tags, // NEW
+//       isFeatured: product.isFeatured,
+//       tags: product.tags,
 //       updatedAt: new Date()
 //     };
 
@@ -1604,9 +1298,10 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //   }
 // };
 
-// @desc    Update product
+
+// @desc    Update product - MODIFIED to accept JSON with image URLs
 // @route   PUT /api/products/:id
-// @access  Private (Moderator/Admin)
+// @access  Private (Moderator/Admin) fix one
 const updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -1629,7 +1324,7 @@ const updateProduct = async (req, res) => {
     const {
       productName,
       description,
-      instruction, // NEW: Add instruction field
+      instruction,
       category,
       targetedCustomer,
       fabric,
@@ -1641,9 +1336,24 @@ const updateProduct = async (req, res) => {
       additionalInfo,
       isFeatured,
       tags,
-      metaSettings
+      metaSettings,
+      images,
+      imagesToDelete // Array of image URLs
     } = req.body;
 
+
+    // Delete old images from Cloudinary if provided
+    if (imagesToDelete && Array.isArray(imagesToDelete) && imagesToDelete.length > 0) {
+      for (const publicId of imagesToDelete) {
+        try {
+          await cloudinary.uploader.destroy(publicId);
+          console.log('Deleted image from Cloudinary:', publicId);
+        } catch (cloudinaryError) {
+          console.error('Error deleting image from Cloudinary:', cloudinaryError);
+        }
+      }
+    }
+    
     const oldCategory = product.category.toString();
     const newCategory = category || oldCategory;
 
@@ -1661,7 +1371,7 @@ const updateProduct = async (req, res) => {
     // Update basic fields
     if (productName) product.productName = productName;
     if (description !== undefined) product.description = description;
-    if (instruction !== undefined) product.instruction = instruction; // NEW: Update instruction
+    if (instruction !== undefined) product.instruction = instruction;
     if (category) product.category = category;
     if (targetedCustomer) product.targetedCustomer = targetedCustomer;
     if (fabric) product.fabric = fabric;
@@ -1770,7 +1480,6 @@ const updateProduct = async (req, res) => {
           ? JSON.parse(tags) 
           : tags;
         
-        // Validate tags
         if (parsed && parsed.length > 0) {
           const validTags = [
             'Top Ranking', 'New Arrival', 'Top Deal', 'Best Seller',
@@ -1803,7 +1512,6 @@ const updateProduct = async (req, res) => {
           ? JSON.parse(metaSettings) 
           : metaSettings;
         
-        // Validate meta title length
         if (parsed.metaTitle && parsed.metaTitle.length > 70) {
           return res.status(400).json({
             success: false,
@@ -1811,7 +1519,6 @@ const updateProduct = async (req, res) => {
           });
         }
 
-        // Validate meta description length
         if (parsed.metaDescription && parsed.metaDescription.length > 160) {
           return res.status(400).json({
             success: false,
@@ -1819,7 +1526,6 @@ const updateProduct = async (req, res) => {
           });
         }
 
-        // Update only provided fields
         product.metaSettings = {
           ...product.metaSettings,
           ...parsed
@@ -1832,23 +1538,27 @@ const updateProduct = async (req, res) => {
       }
     }
 
-    // Handle new images
-    if (req.files && req.files.length > 0) {
+    // Update images if provided
+    if (images && Array.isArray(images) && images.length > 0) {
       // Delete old images from Cloudinary
       for (const image of product.images) {
         if (image.publicId) {
-          await cloudinary.uploader.destroy(image.publicId);
+          try {
+            await cloudinary.uploader.destroy(image.publicId);
+          } catch (cloudinaryError) {
+            console.error('Error deleting image from Cloudinary:', cloudinaryError);
+          }
         }
       }
 
-      // Add new images
-      const newImages = req.files.map((file, index) => ({
-        url: file.path,
-        publicId: file.filename,
+      // Process new images
+      const processedImages = images.map((url, index) => ({
+        url: url,
+        publicId: extractPublicIdFromUrl(url),
         isPrimary: index === 0
       }));
       
-      product.images = newImages;
+      product.images = processedImages;
     }
 
     await product.save();
@@ -1857,7 +1567,7 @@ const updateProduct = async (req, res) => {
     const updateData = {
       productName: product.productName,
       description: product.description,
-      instruction: product.instruction, // NEW: Include instruction in update
+      instruction: product.instruction,
       targetedCustomer: product.targetedCustomer,
       fabric: product.fabric,
       sizes: product.sizes,
@@ -1907,17 +1617,6 @@ const updateProduct = async (req, res) => {
     });
   } catch (error) {
     console.error('Update product error:', error);
-    
-    if (req.files && req.files.length > 0) {
-      try {
-        for (const file of req.files) {
-          await cloudinary.uploader.destroy(file.filename);
-        }
-      } catch (cloudinaryError) {
-        console.error('Error deleting from Cloudinary:', cloudinaryError);
-      }
-    }
-    
     res.status(500).json({
       success: false,
       error: error.message || 'Server error while updating product'

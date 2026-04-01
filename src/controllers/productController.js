@@ -715,28 +715,7 @@ const extractPublicIdFromUrl = (url) => {
   return null;
 };
 
-// Helper function to extract public ID from Cloudinary URL
-const extractPublicIdFromUrl = (url) => {
-  if (!url) return null;
-  
-  try {
-    // Extract public_id from Cloudinary URL
-    // Example URL: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/b2b-products/abc123.jpg
-    const parts = url.split('/');
-    const uploadIndex = parts.findIndex(part => part === 'upload');
-    if (uploadIndex !== -1 && uploadIndex + 2 < parts.length) {
-      // Skip the version part (v1234567890)
-      const publicIdWithExt = parts.slice(uploadIndex + 2).join('/');
-      // Remove file extension
-      const publicId = publicIdWithExt.substring(0, publicIdWithExt.lastIndexOf('.'));
-      return publicId;
-    }
-  } catch (error) {
-    console.error('Error extracting public ID from URL:', error);
-  }
-  
-  return null;
-};
+
 
 // @desc    Update product - MODIFIED to accept JSON with image URLs
 // @route   PUT /api/products/:id

@@ -75,7 +75,7 @@ const drawColorCircle = (doc, x, y, colorCode) => {
 };
 
 /**
- * Generate Invoice PDF - COMPACT VERSION
+ * Generate Invoice PDF
  */
 const generateInvoicePDF = async (invoice) => {
   console.log('📄 Starting PDF generation for invoice:', invoice?.invoiceNumber);
@@ -109,14 +109,12 @@ const generateInvoicePDF = async (invoice) => {
       doc.on('error', reject);
 
       // ==================== HEADER WITH LOGO AND COMPANY INFO ====================
-      // Square logo - same width and height
       const logoSize = 55;
       const logoX = 40;
       const logoY = 35;
       
       if (companyLogoBuffer) {
         try {
-          // Force square dimensions
           doc.image(companyLogoBuffer, logoX, logoY, { 
             width: logoSize, 
             height: logoSize,
@@ -128,7 +126,6 @@ const generateInvoicePDF = async (invoice) => {
           const companyName = invoice.company?.companyName || 'Asian Clothify';
           const initials = getCompanyInitials(companyName);
           
-          // Draw square background instead of circle
           doc.fillColor('#E39A65')
              .rect(logoX, logoY, logoSize, logoSize)
              .fill();
@@ -142,7 +139,6 @@ const generateInvoicePDF = async (invoice) => {
         const companyName = invoice.company?.companyName || 'Asian Clothify';
         const initials = getCompanyInitials(companyName);
         
-        // Draw square background
         doc.fillColor('#E39A65')
            .rect(logoX, logoY, logoSize, logoSize)
            .fill();
@@ -153,65 +149,147 @@ const generateInvoicePDF = async (invoice) => {
            .text(initials, logoX + logoSize/2 - 8, logoY + logoSize/2 - 7);
       }
 
-      const companyX = logoX + logoSize + 15;
+          const companyX = logoX + logoSize + 15;
       
       doc.fillColor('#333333')
          .fontSize(14)
          .font('Helvetica-Bold')
          .text(invoice.company?.companyName || 'Asian Clothify', companyX, logoY);
       
-      doc.fontSize(8)
-         .font('Helvetica');
+      // Company contact details - all at 8.5pt font size
+      doc.fontSize(8.5)
+         .font('Helvetica')
+         .fillColor('#666666');
       
       if (invoice.company?.contactPerson) {
         doc.font('Helvetica-Bold')
-           .text('Contact: ', companyX, logoY + 18, { continued: true })
+           .text('Contact: ', companyX, logoY + 20, { continued: true })
            .font('Helvetica')
+           .fillColor('#666666')
            .text(invoice.company.contactPerson);
       }
       
-      doc.fontSize(7)
-         .fillColor('#666666')
-         .text(invoice.company?.email || 'info@asianclothify.com', companyX, logoY + 28)
-         .text(invoice.company?.phone || '+8801305-785685', companyX, logoY + 35);
+      // Email - 8.5pt
+      doc.fillColor('#666666')
+         .text(invoice.company?.email || 'info@asianclothify.com', companyX, logoY + 32);
       
+      // Phone - 8.5pt  
+      doc.text(invoice.company?.phone || '+8801305-785685', companyX, logoY + 44);
+      
+      // Address - 8.5pt
       if (invoice.company?.address) {
-        doc.fontSize(6.5)
-           .text(invoice.company.address, companyX, logoY + 42, { width: 220 });
+        doc.text(invoice.company.address, companyX, logoY + 56, { width: 220 });
       }
 
-      // Invoice details on right
+      // Invoice details on right - compact spacing
       doc.fillColor('#E39A65')
-         .fontSize(11)
+         .fontSize(8)
          .font('Helvetica-Bold')
-         .text('INVOICE', 450, 40, { align: 'right' });
+         .text(`Invoice No: ${invoice.invoiceNumber || 'N/A'}`, 450, 40, { align: 'right' });
       
       doc.fillColor('#333333')
-         .fontSize(9)
+         .fontSize(8)
          .font('Helvetica')
-         .text(`Invoice #: ${invoice.invoiceNumber || 'N/A'}`, 450, 58, { align: 'right' })
-         .text(`Date: ${formatDate(invoice.invoiceDate)}`, 450, 72, { align: 'right' })
-         .text(`Due Date: ${formatDate(invoice.dueDate)}`, 450, 86, { align: 'right' })
-         .text(`Status: ${invoice.paymentStatus?.toUpperCase() || 'UNPAID'}`, 450, 100, { align: 'right' });
+         .text(`Date: ${formatDate(invoice.invoiceDate)}`, 450, 52, { align: 'right' })
+         .text(`Due Date: ${formatDate(invoice.dueDate)}`, 450, 64, { align: 'right' })
+         .text(`Status: ${invoice.paymentStatus?.toUpperCase() || 'UNPAID'}`, 450, 76, { align: 'right' });
 
-      // ==================== BILL TO SECTION ====================
-      let yPos = 135;
+      // ==================== CUSTOMER INFO SECTION ====================
+      // let yPos = 125;
       
-      doc.fillColor('#333333')
-         .fontSize(11)
-         .font('Helvetica-Bold')
-         .text('Bill To:', 40, yPos);
+      // // Customer Info Title
+      // doc.fillColor('#333333')
+      //    .fontSize(10)
+      //    .font('Helvetica-Bold')
+      //    .text('CUSTOMER INFO', 40, yPos);
       
-      yPos += 12;
+      // yPos += 15;
       
-      doc.fontSize(9)
-         .font('Helvetica')
-         .text(invoice.customer?.companyName || 'N/A', 40, yPos)
-         .text(invoice.customer?.contactPerson || '', 40, yPos + 10)
-         .text(invoice.customer?.email || '', 40, yPos + 20)
-         .text(invoice.customer?.phone || '', 40, yPos + 30);
+      // // Customer details - compact
+      // doc.fontSize(8.5)
+      //    .font('Helvetica')
+      //    .fillColor('#333333')
+      //    .text(`Company: ${invoice.customer?.companyName || 'N/A'}`, 40, yPos);
+      // yPos += 12;
+      
+      // doc.text(`Customer Name: ${invoice.customer?.contactPerson || 'N/A'}`, 40, yPos);
+      // yPos += 12;
+      
+      // doc.text(`Phone: ${invoice.customer?.phone || 'N/A'}`, 40, yPos);
+      // yPos += 12;
+      
+      // doc.text(`Email: ${invoice.customer?.email || 'N/A'}`, 40, yPos);
+      
+      //       // ==================== ADDRESS SECTION (Left-aligned, positioned on the right side) ====================
+      // const billingAddress = [
+      //   invoice.customer?.billingAddress,
+      //   invoice.customer?.billingCity,
+      //   invoice.customer?.billingZipCode,
+      //   invoice.customer?.billingCountry
+      // ].filter(Boolean).join(', ');
+      
+      // const shippingAddress = [
+      //   invoice.customer?.shippingAddress,
+      //   invoice.customer?.shippingCity,
+      //   invoice.customer?.shippingZipCode,
+      //   invoice.customer?.shippingCountry
+      // ].filter(Boolean).join(', ');
+      
+      // const addressX = 250;
+      // let addressY = 125;
+      
+      // // Title - left aligned
+      // doc.fillColor('#333333')
+      //    .fontSize(10)
+      //    .font('Helvetica-Bold')
+      //    .text('ADDRESS', addressX, addressY);
+      
+      // // Billing Address - compact spacing
+      // addressY += 15;
+      // doc.fontSize(8.5)
+      //    .font('Helvetica-Bold')
+      //    .fillColor('#555555')
+      //    .text('Billing Address:', addressX, addressY);
+      
+      // addressY += 12;
+      // const billingAddressText = billingAddress || 'No billing address provided';
+      // doc.fontSize(8.5)
+      //    .font('Helvetica')
+      //    .fillColor('#333333')
+      //    .text(billingAddressText, addressX, addressY, { width: 230 });
+      
+      // addressY += doc.heightOfString(billingAddressText, { width: 230, fontSize: 8.5 }) + 5;
+      
+      // // Shipping Address
+      // doc.fontSize(8.5)
+      //    .font('Helvetica-Bold')
+      //    .fillColor('#555555')
+      //    .text('Shipping Address:', addressX, addressY);
+      
+      // addressY += 12;
+      
+      // // Check if shipping address is same as billing address
+      // if (shippingAddress && billingAddress && shippingAddress === billingAddress) {
+      //   doc.fontSize(8.5)
+      //      .font('Helvetica')
+      //      .fillColor('#333333')
+      //      .text('Same as billing address', addressX, addressY, { width: 230 });
+      //   addressY += 12;
+      // } else if (shippingAddress) {
+      //   doc.fontSize(8.5)
+      //      .font('Helvetica')
+      //      .fillColor('#333333')
+      //      .text(shippingAddress, addressX, addressY, { width: 230 });
+      //   addressY += doc.heightOfString(shippingAddress, { width: 230, fontSize: 8.5 }) + 5;
+      // } else {
+      //   doc.fontSize(8.5)
+      //      .font('Helvetica')
+      //      .fillColor('#333333')
+      //      .text('No shipping address provided', addressX, addressY, { width: 230 });
+      //   addressY += 12;
+      // }
 
-      // Billing Address
+                // ==================== CUSTOMER INFO & ADDRESS SECTION (50/50 split, background only, no border) ====================
       const billingAddress = [
         invoice.customer?.billingAddress,
         invoice.customer?.billingCity,
@@ -219,74 +297,124 @@ const generateInvoicePDF = async (invoice) => {
         invoice.customer?.billingCountry
       ].filter(Boolean).join(', ');
       
-      if (billingAddress) {
-        let addressY = yPos + 40;
-        doc.text('Bill to:', 40, addressY)
-           .fontSize(8)
-         
-           .text(billingAddress, 40, addressY + 8, { width: 250 });
-        
-        // Shipping Address - directly below billing address
-        const shippingAddress = [
-          invoice.customer?.shippingAddress,
-          invoice.customer?.shippingCity,
-          invoice.customer?.shippingZipCode,
-          invoice.customer?.shippingCountry
-        ].filter(Boolean).join(', ');
-        
-        if (shippingAddress && shippingAddress !== billingAddress) {
-          let shippingY = addressY + 8 + doc.heightOfString(billingAddress, { width: 250 }) + 5;
-          doc.fontSize(8)
-             .font('Helvetica-Bold')
-             .text('Ship To:', 40, shippingY);
-          
-          doc.fontSize(8)
-             .font('Helvetica')
-             .text(shippingAddress, 40, shippingY + 8, { width: 250 });
-        }
+      const shippingAddress = [
+        invoice.customer?.shippingAddress,
+        invoice.customer?.shippingCity,
+        invoice.customer?.shippingZipCode,
+        invoice.customer?.shippingCountry
+      ].filter(Boolean).join(', ');
+      
+      // Draw a light background box for customer & address section (NO BORDER)
+      const infoBoxX = 40;
+      const infoBoxY = 115;
+      const infoBoxWidth = 520;
+      const infoBoxHeight = 105;
+      
+      doc.fillColor('#F9F9FC')
+         .rect(infoBoxX, infoBoxY, infoBoxWidth, infoBoxHeight)
+         .fill();
+      
+      // Draw separator line between left and right columns
+      const separatorX = infoBoxX + 260;
+      doc.strokeColor('#DDDDDD')
+         .lineWidth(0.5)
+         .moveTo(separatorX, infoBoxY + 8)
+         .lineTo(separatorX, infoBoxY + infoBoxHeight - 8)
+         .stroke();
+      
+      // ==================== LEFT COLUMN: CUSTOMER INFO ====================
+      const customerX = infoBoxX + 15;
+      let customerY = infoBoxY + 12;
+      
+      doc.fillColor('#E39A65')
+         .fontSize(9)
+         .font('Helvetica-Bold')
+         .text('CUSTOMER INFO', customerX, customerY);
+      
+      customerY += 16;
+      
+      doc.fontSize(8.5)
+         .font('Helvetica')
+         .fillColor('#333333');
+      
+      doc.font('Helvetica-Bold')
+         .text('Company: ', customerX, customerY, { continued: true })
+         .font('Helvetica')
+         .text(invoice.customer?.companyName || 'N/A');
+      customerY += 12;
+      
+      doc.font('Helvetica-Bold')
+         .text('Customer Name: ', customerX, customerY, { continued: true })
+         .font('Helvetica')
+         .text(invoice.customer?.contactPerson || 'N/A');
+      customerY += 12;
+      
+      doc.font('Helvetica-Bold')
+         .text('Phone: ', customerX, customerY, { continued: true })
+         .font('Helvetica')
+         .text(invoice.customer?.phone || 'N/A');
+      customerY += 12;
+      
+      doc.font('Helvetica-Bold')
+         .text('Email: ', customerX, customerY, { continued: true })
+         .font('Helvetica')
+         .text(invoice.customer?.email || 'N/A');
+      
+      // ==================== RIGHT COLUMN: ADDRESS ====================
+      const addressX = separatorX + 15;
+      let addressY = infoBoxY + 12;
+      
+      doc.fillColor('#E39A65')
+         .fontSize(9)
+         .font('Helvetica-Bold')
+         .text('ADDRESS', addressX, addressY);
+      
+      addressY += 16;
+      
+      doc.fontSize(8.5)
+         .font('Helvetica')
+         .fillColor('#333333');
+      
+      // Billing Address
+      doc.font('Helvetica-Bold')
+         .fillColor('#555555')
+         .text('Billing Address:', addressX, addressY);
+      
+      addressY += 12;
+      const billingAddressText = billingAddress || 'No billing address provided';
+      doc.font('Helvetica')
+         .fillColor('#333333')
+         .text(billingAddressText, addressX, addressY, { width: 230 });
+      
+      addressY += doc.heightOfString(billingAddressText, { width: 230, fontSize: 8.5 }) + 8;
+      
+      // Shipping Address
+      doc.font('Helvetica-Bold')
+         .fillColor('#555555')
+         .text('Shipping Address:', addressX, addressY);
+      
+      addressY += 12;
+      
+      if (shippingAddress && billingAddress && shippingAddress === billingAddress) {
+        doc.font('Helvetica')
+           .fillColor('#333333')
+           .text('Same as billing address', addressX, addressY, { width: 230 });
+      } else if (shippingAddress) {
+        doc.font('Helvetica')
+           .fillColor('#333333')
+           .text(shippingAddress, addressX, addressY, { width: 230 });
+      } else {
+        doc.font('Helvetica')
+           .fillColor('#333333')
+           .text('No shipping address provided', addressX, addressY, { width: 230 });
       }
+      
+      // Update yPos for items table based on the bottom of this box
+      let yPos = infoBoxY + infoBoxHeight + 15;
 
-      // ==================== BANK DETAILS (Right Side) ====================
-      if (invoice.bankDetails && Object.values(invoice.bankDetails).some(v => v)) {
-        doc.fillColor('#333333')
-           .fontSize(11)
-           .font('Helvetica-Bold')
-           .text('Bank Details', 330, 135);
-        
-        let bankY = 147;
-        const lineHeight = 10;
-        
-        doc.fontSize(8)
-           .font('Helvetica')
-           .fillColor('#666666');
-        
-        if (invoice.bankDetails.bankName) {
-          doc.text(`Bank: ${invoice.bankDetails.bankName}`, 330, bankY);
-          bankY += lineHeight;
-        }
-        if (invoice.bankDetails.accountName) {
-          doc.text(`A/C: ${invoice.bankDetails.accountName}`, 330, bankY);
-          bankY += lineHeight;
-        }
-        if (invoice.bankDetails.accountNumber) {
-          doc.text(`A/C No: ${invoice.bankDetails.accountNumber}`, 330, bankY);
-          bankY += lineHeight;
-        }
-        if (invoice.bankDetails.accountType) {
-          doc.text(`Type: ${invoice.bankDetails.accountType}`, 330, bankY);
-          bankY += lineHeight;
-        }
-        if (invoice.bankDetails.routingNumber) {
-          doc.text(`Routing: ${invoice.bankDetails.routingNumber}`, 330, bankY);
-          bankY += lineHeight;
-        }
-        if (invoice.bankDetails.swiftCode) {
-          doc.text(`SWIFT: ${invoice.bankDetails.swiftCode}`, 330, bankY);
-        }
-      }
 
       // ==================== ITEMS TABLE ====================
-      yPos = 235;
+      // yPos = Math.max(yPos + 20, addressY + 20, 235);
       
       // Table Header
       doc.fillColor('#E39A65')
@@ -394,7 +522,7 @@ const generateInvoicePDF = async (invoice) => {
         }
       }
 
-      // ==================== SUMMARY - TABLE LAYOUT ====================
+      // ==================== SUMMARY SECTION ====================
       yPos += 20;
 
       const subtotal = Number(invoice.subtotal || 0).toFixed(2);
@@ -495,37 +623,322 @@ const generateInvoicePDF = async (invoice) => {
          .text('Due:', col1X, summaryY);
       doc.text(`${formatPriceShort(dueAmount)} (${duePercent}%)`, col2X, summaryY);
 
-      // ==================== NOTES ====================
-      if (invoice.notes || invoice.terms) {
-        yPos = Math.max(yPos + 20, 550);
+      // Reset color
+      doc.fillColor('#333333');
+
+      // ==================== BANK DETAILS (LEFT) & BANKING TERMS (RIGHT) ====================
+      let bankingStartY = summaryBoxY + summaryBoxHeight + 15;
+      
+      const hasBankDetails = invoice.bankDetails && Object.values(invoice.bankDetails).some(v => v && v.toString().trim());
+      const hasBankingTerms = invoice.bankingTerms && invoice.bankingTerms.length > 0 && 
+                              invoice.bankingTerms.some(term => term.title?.trim() || term.value?.trim());
+      
+      if (hasBankDetails || hasBankingTerms) {
+        // Draw a light background box for the entire banking section
+        const bankingBoxX = 40;
+        const bankingBoxY = bankingStartY;
+        const bankingBoxWidth = 520;
         
-        if (invoice.notes) {
-          doc.fillColor('#333333')
-             .fontSize(10)
-             .font('Helvetica-Bold')
-             .text('Notes:', 40, yPos);
-          yPos += 12;
-
-          doc.fontSize(8)
-             .font('Helvetica')
-             .text(invoice.notes, 40, yPos, { width: 450 });
-          yPos += doc.heightOfString(invoice.notes, { width: 450 }) + 8;
+        // Calculate dynamic heights based on content
+        let leftColumnHeight = 25; // Minimum height for header
+        let rightColumnHeight = 25; // Minimum height for header
+        
+        // Calculate left column height (Bank Details)
+        if (hasBankDetails) {
+          const bankDetails = invoice.bankDetails;
+          let lineCount = 0;
+          if (bankDetails.bankName && bankDetails.bankName.toString().trim()) lineCount++;
+          if (bankDetails.accountName && bankDetails.accountName.toString().trim()) lineCount++;
+          if (bankDetails.accountNumber && bankDetails.accountNumber.toString().trim()) lineCount++;
+          if (bankDetails.accountType && bankDetails.accountType.toString().trim()) lineCount++;
+          if (bankDetails.routingNumber && bankDetails.routingNumber.toString().trim()) lineCount++;
+          if (bankDetails.swiftCode && bankDetails.swiftCode.toString().trim()) lineCount++;
+          if (bankDetails.iban && bankDetails.iban.toString().trim()) lineCount++;
+          if (bankDetails.bankAddress && bankDetails.bankAddress.toString().trim()) lineCount++;
+          leftColumnHeight = Math.max(leftColumnHeight, (lineCount * 14) + 20);
         }
-
-        if (invoice.terms) {
-          doc.fillColor('#333333')
-             .fontSize(10)
-             .font('Helvetica-Bold')
-             .text('Terms & Conditions:', 40, yPos);
-          yPos += 12;
-
-          doc.fontSize(8)
+        
+        // Calculate right column height (Banking Terms)
+        if (hasBankingTerms) {
+          const validTerms = invoice.bankingTerms.filter(term => term.title?.trim() || term.value?.trim());
+          let totalHeight = 0;
+          
+          const measureTextHeight = (text, width, fontSize = 7.5) => {
+            const charsPerLine = Math.floor(width / 4.5);
+            const lines = Math.ceil(text.length / charsPerLine);
+            return lines * 12;
+          };
+          
+          validTerms.forEach(term => {
+            if (term.title && term.value) {
+              const titleText = `${term.title}: `;
+              const fullText = titleText + term.value;
+              const textHeight = measureTextHeight(fullText, 230, 7.5);
+              totalHeight += Math.max(textHeight, 14);
+            } else if (term.title) {
+              const textHeight = measureTextHeight(term.title, 230, 7.5);
+              totalHeight += Math.max(textHeight, 14);
+            } else if (term.value) {
+              const textHeight = measureTextHeight(term.value, 230, 7.5);
+              totalHeight += Math.max(textHeight, 14);
+            }
+          });
+          
+          rightColumnHeight = Math.max(rightColumnHeight, totalHeight + 20);
+        }
+        
+        const boxHeight = Math.max(leftColumnHeight, rightColumnHeight, 60) + 15;
+        
+        // Draw background box
+        doc.fillColor('#F9F9FC')
+           .rect(bankingBoxX, bankingBoxY, bankingBoxWidth, boxHeight)
+           .fill();
+        
+        // Draw border
+        doc.strokeColor('#E39A65')
+           .lineWidth(0.8)
+           .rect(bankingBoxX, bankingBoxY, bankingBoxWidth, boxHeight)
+           .stroke();
+        
+        // Draw separator line between left and right columns
+        const separatorX = bankingBoxX + 260;
+        doc.strokeColor('#DDDDDD')
+           .lineWidth(0.5)
+           .moveTo(separatorX, bankingBoxY + 8)
+           .lineTo(separatorX, bankingBoxY + boxHeight - 8)
+           .stroke();
+        
+        // ==================== LEFT COLUMN: BANK DETAILS ====================
+        const leftX = bankingBoxX + 15;
+        let leftY = bankingBoxY + 12;
+        
+        // Header
+        doc.fillColor('#E39A65')
+           .fontSize(9)
+           .font('Helvetica-Bold')
+           .text('BANK DETAILS', leftX, leftY);
+        
+        leftY += 16;
+        
+        if (hasBankDetails) {
+          doc.fontSize(7.5)
              .font('Helvetica')
-             .text(invoice.terms, 40, yPos, { width: 450 });
+             .fillColor('#333333');
+          
+          const bankDetails = invoice.bankDetails;
+          
+          const drawBankLine = (label, value, y) => {
+            if (value && value.toString().trim()) {
+              const labelText = `${label}: `;
+              const fullText = labelText + value.toString();
+              const textWidth = doc.widthOfString(fullText, { fontSize: 7.5 });
+              
+              if (textWidth <= 230) {
+                doc.font('Helvetica-Bold')
+                   .text(labelText, leftX, y, { continued: true })
+                   .font('Helvetica')
+                   .text(value.toString());
+                return 12;
+              } else {
+                doc.font('Helvetica-Bold')
+                   .text(labelText, leftX, y, { continued: true })
+                   .font('Helvetica')
+                   .text(value.toString(), { width: 230 });
+                return doc.heightOfString(fullText, { width: 230 }) + 4;
+              }
+            }
+            return 0;
+          };
+          
+          if (bankDetails.bankName && bankDetails.bankName.toString().trim()) {
+            const height = drawBankLine('Bank Name', bankDetails.bankName, leftY);
+            leftY += height;
+          }
+          if (bankDetails.accountName && bankDetails.accountName.toString().trim()) {
+            const height = drawBankLine('Account Name', bankDetails.accountName, leftY);
+            leftY += height;
+          }
+          if (bankDetails.accountNumber && bankDetails.accountNumber.toString().trim()) {
+            const height = drawBankLine('Account Number', bankDetails.accountNumber, leftY);
+            leftY += height;
+          }
+          if (bankDetails.accountType && bankDetails.accountType.toString().trim()) {
+            const height = drawBankLine('Account Type', bankDetails.accountType, leftY);
+            leftY += height;
+          }
+          if (bankDetails.routingNumber && bankDetails.routingNumber.toString().trim()) {
+            const height = drawBankLine('Routing Number', bankDetails.routingNumber, leftY);
+            leftY += height;
+          }
+          if (bankDetails.swiftCode && bankDetails.swiftCode.toString().trim()) {
+            const height = drawBankLine('SWIFT Code', bankDetails.swiftCode, leftY);
+            leftY += height;
+          }
+          if (bankDetails.iban && bankDetails.iban.toString().trim()) {
+            const height = drawBankLine('IBAN', bankDetails.iban, leftY);
+            leftY += height;
+          }
+          if (bankDetails.bankAddress && bankDetails.bankAddress.toString().trim()) {
+            const height = drawBankLine('Bank Address', bankDetails.bankAddress, leftY);
+            leftY += height;
+          }
+        } else {
+          doc.fillColor('#999999')
+             .fontSize(7.5)
+             .font('Helvetica')
+             .text('No bank details provided', leftX, leftY);
+        }
+        
+        // ==================== RIGHT COLUMN: BANKING TERMS ====================
+        const rightX = separatorX + 15;
+        let rightY = bankingBoxY + 12;
+        
+        // Header
+        doc.fillColor('#E39A65')
+           .fontSize(9)
+           .font('Helvetica-Bold')
+           .text('BANKING TERMS', rightX, rightY);
+        
+        rightY += 16;
+        
+        if (hasBankingTerms) {
+          doc.fontSize(7.5)
+             .font('Helvetica')
+             .fillColor('#333333');
+          
+          const validTerms = invoice.bankingTerms.filter(term => term.title?.trim() || term.value?.trim());
+          const regularTerms = validTerms.filter(term => term.title?.trim() && term.value?.trim());
+          const titleOnlyTerms = validTerms.filter(term => term.title?.trim() && !term.value?.trim());
+          const valueOnlyTerms = validTerms.filter(term => !term.title?.trim() && term.value?.trim());
+          
+          // Draw regular terms (title: value)
+          regularTerms.forEach((term) => {
+            const titleText = `${term.title}: `;
+            const fullText = titleText + term.value;
+            const textWidth = doc.widthOfString(fullText, { fontSize: 7.5 });
+            
+            if (textWidth <= 230) {
+              doc.font('Helvetica-Bold')
+                 .text(titleText, rightX, rightY, { continued: true })
+                 .font('Helvetica')
+                 .text(term.value);
+              rightY += 12;
+            } else {
+              doc.font('Helvetica-Bold')
+                 .text(titleText, rightX, rightY);
+              rightY += 10;
+              doc.font('Helvetica')
+                 .text(term.value, rightX, rightY, { width: 230 });
+              rightY += doc.heightOfString(term.value, { width: 230 }) + 4;
+            }
+          });
+          
+          // Draw title-only terms (long titles without values) - at the end
+          if (titleOnlyTerms.length > 0) {
+            if (regularTerms.length > 0) rightY += 4;
+            
+            titleOnlyTerms.forEach((term) => {
+              doc.font('Helvetica-Bold')
+                 .fillColor('#E39A65')
+                 .text(term.title, rightX, rightY);
+              rightY += 10;
+              doc.fillColor('#333333');
+            });
+          }
+          
+          // Draw value-only terms
+          if (valueOnlyTerms.length > 0) {
+            if (regularTerms.length > 0 || titleOnlyTerms.length > 0) rightY += 4;
+            
+            valueOnlyTerms.forEach((term) => {
+              doc.font('Helvetica')
+                 .text(term.value, rightX, rightY, { width: 230 });
+              rightY += doc.heightOfString(term.value, { width: 230 }) + 4;
+            });
+          }
+        } else {
+          doc.fillColor('#999999')
+             .fontSize(7.5)
+             .font('Helvetica')
+             .text('No banking terms provided', rightX, rightY);
+        }
+        
+        bankingStartY += boxHeight + 10;
+      }
+      
+      // ==================== NOTES & TERMS ====================
+      let notesStartY = bankingStartY;
+      
+      if (invoice.notes || invoice.terms) {
+        if (notesStartY > 720) {
+          doc.addPage();
+          notesStartY = 40;
+        }
+        
+        const notesBoxX = 40;
+        const notesBoxY = notesStartY;
+        const notesBoxWidth = 520;
+        
+        let notesBoxHeight = 15;
+        if (invoice.notes) notesBoxHeight += doc.heightOfString(invoice.notes, { width: 500 }) + 20;
+        if (invoice.terms) notesBoxHeight += doc.heightOfString(invoice.terms, { width: 500 }) + 20;
+        
+        if (notesBoxHeight > 15) {
+          doc.fillColor('#FFF8F0')
+             .rect(notesBoxX, notesBoxY, notesBoxWidth, notesBoxHeight)
+             .fill();
+          
+          doc.strokeColor('#E39A65')
+             .lineWidth(0.5)
+             .rect(notesBoxX, notesBoxY, notesBoxWidth, notesBoxHeight)
+             .stroke();
+          
+          let currentNotesY = notesBoxY + 12;
+          
+          if (invoice.notes) {
+            doc.fillColor('#333333')
+               .fontSize(9)
+               .font('Helvetica-Bold')
+               .text('NOTES:', notesBoxX + 10, currentNotesY);
+            currentNotesY += 12;
+            
+            doc.fontSize(7.5)
+               .font('Helvetica')
+               .fillColor('#666666')
+               .text(invoice.notes, notesBoxX + 10, currentNotesY, { width: 500 });
+            currentNotesY += doc.heightOfString(invoice.notes, { width: 500 }) + 8;
+          }
+          
+          if (invoice.terms) {
+            doc.fillColor('#333333')
+               .fontSize(9)
+               .font('Helvetica-Bold')
+               .text('TERMS & CONDITIONS:', notesBoxX + 10, currentNotesY);
+            currentNotesY += 12;
+            
+            doc.fontSize(7.5)
+               .font('Helvetica')
+               .fillColor('#666666')
+               .text(invoice.terms, notesBoxX + 10, currentNotesY, { width: 500 });
+          }
         }
       }
+      
+      // ==================== FOOTER ====================
+      // Force footer to be at the very bottom of the page
+      const pageHeight = doc.page.height;
+      const footerY = pageHeight - 35;
+      
+      // Draw line
+      doc.strokeColor('#E39A65')
+         .lineWidth(0.5)
+         .moveTo(40, footerY - 8)
+         .lineTo(550, footerY - 8)
+         .stroke();
+      
+    
 
-      console.log('📄 PDF generation complete - compact version');
+      console.log('📄 PDF generation complete');
       doc.end();
 
     } catch (error) {
@@ -536,5 +949,3 @@ const generateInvoicePDF = async (invoice) => {
 };
 
 module.exports = { generateInvoicePDF };
-
-

@@ -102,16 +102,19 @@ const blogSchema = new mongoose.Schema({
   },
   metaTitle: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
   },
   metaDescription: {
     type: String,
     trim: true,
-    maxlength: [160, 'Meta description cannot exceed 160 characters']
+    default: '',
   },
   metaKeywords: {
     type: String,
-    trim: true
+    trim: true,
+    default: ''
+
   },
   isActive: {
     type: Boolean,

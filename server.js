@@ -35,6 +35,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
   'https://zesty-tiramisu-f6e9f7.netlify.app',
+  'https://fabulous-froyo-e675df.netlify.app',
   process.env.FRONTEND_URL // Keep this for flexibility
 ].filter(Boolean); // Remove any undefined values
 

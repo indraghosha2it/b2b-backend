@@ -18,6 +18,17 @@ const formatPrice = (price) => {
   }).format(price || 0);
 };
 
+// Helper function to format date for change descriptions
+const formatDate = (dateString) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};
+
 // Helper function to calculate payment status - REMOVED overdue
 // const calculatePaymentStatus = (finalTotal, amountPaid) => {
 //   const epsilon = 0.01;
@@ -643,6 +654,125 @@ const getMyInvoices = async (req, res) => {
 // @desc    Update invoice (Admin only)
 // @route   PUT /api/invoices/:id
 // @access  Private/Admin
+// const updateInvoice = async (req, res) => {
+//   try {
+//     const invoice = await Invoice.findById(req.params.id);
+
+//     if (!invoice) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'Invoice not found'
+//       });
+//     }
+
+//     // Don't allow updating paid invoices
+//     if (invoice.paymentStatus === 'paid') {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Cannot update a paid invoice'
+//       });
+//     }
+
+//     // Don't allow updating cancelled invoices
+//     if (invoice.paymentStatus === 'cancelled') {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Cannot update a cancelled invoice'
+//       });
+//     }
+
+    
+//     // Store old values for change tracking
+//     const oldValues = {
+//       finalTotal: invoice.finalTotal,
+//       amountPaid: invoice.amountPaid,
+//       paymentStatus: invoice.paymentStatus
+//     };
+
+//     const updateData = { ...req.body, updatedAt: new Date() };
+   
+//     // Clean up banking terms if present
+//     if (updateData.bankingTerms && Array.isArray(updateData.bankingTerms)) {
+//       updateData.bankingTerms = updateData.bankingTerms.filter(term => 
+//         term.title?.trim() !== '' || term.value?.trim() !== ''
+//       );
+//     }
+
+
+//     // Recalculate payment details if amount paid or final total changed
+//     if (req.body.amountPaid !== undefined || req.body.finalTotal !== undefined) {
+//       const finalTotal = req.body.finalTotal !== undefined ? req.body.finalTotal : invoice.finalTotal;
+//       const amountPaid = req.body.amountPaid !== undefined ? req.body.amountPaid : invoice.amountPaid;
+      
+//       const paymentDetails = calculatePaymentStatus(finalTotal, amountPaid);
+//       updateData.paymentStatus = paymentDetails.paymentStatus;
+//       updateData.paidPercentage = paymentDetails.paidPercentage;
+//       updateData.unpaidPercentage = paymentDetails.unpaidPercentage;
+//       updateData.dueAmount = paymentDetails.dueAmount;
+//     }
+
+//     const updatedInvoice = await Invoice.findByIdAndUpdate(
+//       req.params.id,
+//       updateData,
+//       { new: true, runValidators: true }
+//     );
+
+//      try {
+//       // Only send emails if payment status changed or significant changes
+//       if (oldValues.paymentStatus !== updatedInvoice.paymentStatus || 
+//           oldValues.finalTotal !== updatedInvoice.finalTotal ||
+//           oldValues.amountPaid !== updatedInvoice.amountPaid) {
+        
+//         const customerDetails = {
+//           companyName: updatedInvoice.customer.companyName,
+//           contactPerson: updatedInvoice.customer.contactPerson,
+//           email: updatedInvoice.customer.email,
+//           phone: updatedInvoice.customer.phone,
+//           whatsapp: updatedInvoice.customer.whatsapp
+//         };
+        
+//         // Create a description of changes
+//         let changes = [];
+//         if (oldValues.finalTotal !== updatedInvoice.finalTotal) {
+//           changes.push(`Total amount changed from ${formatPrice(oldValues.finalTotal)} to ${formatPrice(updatedInvoice.finalTotal)}`);
+//         }
+//         if (oldValues.amountPaid !== updatedInvoice.amountPaid) {
+//           changes.push(`Paid amount changed from ${formatPrice(oldValues.amountPaid)} to ${formatPrice(updatedInvoice.amountPaid)}`);
+//         }
+//         if (oldValues.paymentStatus !== updatedInvoice.paymentStatus) {
+//           changes.push(`Payment status changed from ${oldValues.paymentStatus} to ${updatedInvoice.paymentStatus}`);
+//         }
+        
+//         const changesText = changes.join('. ');
+        
+//         await sendInvoiceUpdateEmails(updatedInvoice, customerDetails, changesText);
+//         console.log(`📧 Invoice update emails sent for: ${updatedInvoice.invoiceNumber}`);
+//       }
+//     } catch (emailError) {
+//       console.error('❌ Failed to send invoice update emails:', emailError.message);
+//     }
+//      // --- END EMAILS ---
+
+//     res.json({
+//       success: true,
+//       data: updatedInvoice,
+//       message: 'Invoice updated successfully'
+//     });
+//   } catch (error) {
+//     console.error('Update invoice error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Error updating invoice'
+//     });
+//   }
+// };
+
+// @desc    Update invoice (Admin only)
+// @route   PUT /api/invoices/:id
+// @access  Private/Admin
+// @desc    Update invoice (Admin only)
+// @route   PUT /api/invoices/:id
+// @access  Private/Admin
 const updateInvoice = async (req, res) => {
   try {
     const invoice = await Invoice.findById(req.params.id);
@@ -670,12 +800,42 @@ const updateInvoice = async (req, res) => {
       });
     }
 
-    
-    // Store old values for change tracking
+    // Store DEEP COPY of old values for change tracking
     const oldValues = {
+      // Invoice basic info
+      invoiceDate: invoice.invoiceDate,
+      dueDate: invoice.dueDate,
+      
+      // Customer info - DEEP COPY
+      customer: JSON.parse(JSON.stringify(invoice.customer)),
+      
+      // Company info - DEEP COPY
+      company: JSON.parse(JSON.stringify(invoice.company)),
+      
+      // Bank details - DEEP COPY
+      bankDetails: JSON.parse(JSON.stringify(invoice.bankDetails)),
+      
+      // Banking terms - DEEP COPY
+      bankingTerms: JSON.parse(JSON.stringify(invoice.bankingTerms)),
+      
+      // Calculations
+      subtotal: invoice.subtotal,
       finalTotal: invoice.finalTotal,
+      vatPercentage: invoice.vatPercentage,
+      discountPercentage: invoice.discountPercentage,
+      shippingCost: invoice.shippingCost,
+      
+      // Payment
       amountPaid: invoice.amountPaid,
-      paymentStatus: invoice.paymentStatus
+      paymentStatus: invoice.paymentStatus,
+      
+      // Additional info
+      notes: invoice.notes,
+      terms: invoice.terms,
+      customFields: JSON.parse(JSON.stringify(invoice.customFields)),
+      
+      // Items - DEEP COPY
+      items: JSON.parse(JSON.stringify(invoice.items))
     };
 
     const updateData = { ...req.body, updatedAt: new Date() };
@@ -686,7 +846,6 @@ const updateInvoice = async (req, res) => {
         term.title?.trim() !== '' || term.value?.trim() !== ''
       );
     }
-
 
     // Recalculate payment details if amount paid or final total changed
     if (req.body.amountPaid !== undefined || req.body.finalTotal !== undefined) {
@@ -706,41 +865,160 @@ const updateInvoice = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-     try {
-      // Only send emails if payment status changed or significant changes
-      if (oldValues.paymentStatus !== updatedInvoice.paymentStatus || 
-          oldValues.finalTotal !== updatedInvoice.finalTotal ||
-          oldValues.amountPaid !== updatedInvoice.amountPaid) {
-        
+    // --- COMPREHENSIVE CHANGE DETECTION ---
+    try {
+      let changesList = [];
+      
+      // 1. Check customer info changes (MOST IMPORTANT FOR YOUR CASE)
+      if (oldValues.customer && updatedInvoice.customer) {
+        // Company Name
+        if (oldValues.customer.companyName !== updatedInvoice.customer.companyName) {
+          changesList.push(`Customer company name changed from "${oldValues.customer.companyName || 'N/A'}" to "${updatedInvoice.customer.companyName || 'N/A'}"`);
+        }
+        // Contact Person
+        if (oldValues.customer.contactPerson !== updatedInvoice.customer.contactPerson) {
+          changesList.push(`Customer contact person changed from "${oldValues.customer.contactPerson || 'N/A'}" to "${updatedInvoice.customer.contactPerson || 'N/A'}"`);
+        }
+        // Email
+        if (oldValues.customer.email !== updatedInvoice.customer.email) {
+          changesList.push(`Customer email changed from "${oldValues.customer.email || 'N/A'}" to "${updatedInvoice.customer.email || 'N/A'}"`);
+        }
+        // Phone
+        if (oldValues.customer.phone !== updatedInvoice.customer.phone) {
+          changesList.push(`Customer phone changed from "${oldValues.customer.phone || 'N/A'}" to "${updatedInvoice.customer.phone || 'N/A'}"`);
+        }
+        // Billing Address
+        if (oldValues.customer.billingAddress !== updatedInvoice.customer.billingAddress) {
+          changesList.push(`Customer billing address changed from "${oldValues.customer.billingAddress || 'N/A'}" to "${updatedInvoice.customer.billingAddress || 'N/A'}"`);
+        }
+        // Billing City
+        if (oldValues.customer.billingCity !== updatedInvoice.customer.billingCity) {
+          changesList.push(`Customer billing city changed from "${oldValues.customer.billingCity || 'N/A'}" to "${updatedInvoice.customer.billingCity || 'N/A'}"`);
+        }
+        // Shipping Address
+        if (oldValues.customer.shippingAddress !== updatedInvoice.customer.shippingAddress) {
+          changesList.push(`Customer shipping address changed from "${oldValues.customer.shippingAddress || 'N/A'}" to "${updatedInvoice.customer.shippingAddress || 'N/A'}"`);
+        }
+      }
+      
+      // 2. Check company info changes
+      if (oldValues.company && updatedInvoice.company) {
+        if (oldValues.company.companyName !== updatedInvoice.company.companyName) {
+          changesList.push(`Company name changed from "${oldValues.company.companyName}" to "${updatedInvoice.company.companyName}"`);
+        }
+        if (oldValues.company.contactPerson !== updatedInvoice.company.contactPerson) {
+          changesList.push(`Company contact person changed from "${oldValues.company.contactPerson}" to "${updatedInvoice.company.contactPerson}"`);
+        }
+        if (oldValues.company.email !== updatedInvoice.company.email) {
+          changesList.push(`Company email changed from "${oldValues.company.email}" to "${updatedInvoice.company.email}"`);
+        }
+        if (oldValues.company.phone !== updatedInvoice.company.phone) {
+          changesList.push(`Company phone changed from "${oldValues.company.phone}" to "${updatedInvoice.company.phone}"`);
+        }
+        if (oldValues.company.address !== updatedInvoice.company.address) {
+          changesList.push(`Company address updated`);
+        }
+      }
+      
+      // 3. Check bank details changes
+      if (oldValues.bankDetails && updatedInvoice.bankDetails) {
+        if (oldValues.bankDetails.bankName !== updatedInvoice.bankDetails.bankName) {
+          changesList.push(`Bank name changed from "${oldValues.bankDetails.bankName || 'N/A'}" to "${updatedInvoice.bankDetails.bankName || 'N/A'}"`);
+        }
+        if (oldValues.bankDetails.accountName !== updatedInvoice.bankDetails.accountName) {
+          changesList.push(`Bank account name changed`);
+        }
+        if (oldValues.bankDetails.accountNumber !== updatedInvoice.bankDetails.accountNumber) {
+          changesList.push(`Bank account number changed`);
+        }
+      }
+      
+      // 4. Check banking terms changes
+      if (JSON.stringify(oldValues.bankingTerms) !== JSON.stringify(updatedInvoice.bankingTerms)) {
+        changesList.push(`Banking terms and conditions updated`);
+      }
+      
+      // 5. Check basic invoice info changes
+      if (oldValues.invoiceDate?.toString() !== updatedInvoice.invoiceDate?.toString()) {
+        changesList.push(`Invoice date changed`);
+      }
+      if (oldValues.dueDate?.toString() !== updatedInvoice.dueDate?.toString()) {
+        changesList.push(`Due date changed`);
+      }
+      
+      // 6. Check price-related changes
+      if (oldValues.subtotal !== updatedInvoice.subtotal) {
+        changesList.push(`Subtotal changed from ${formatPrice(oldValues.subtotal)} to ${formatPrice(updatedInvoice.subtotal)}`);
+      }
+      if (oldValues.finalTotal !== updatedInvoice.finalTotal) {
+        changesList.push(`Final total changed from ${formatPrice(oldValues.finalTotal)} to ${formatPrice(updatedInvoice.finalTotal)}`);
+      }
+      if (oldValues.vatPercentage !== updatedInvoice.vatPercentage) {
+        changesList.push(`VAT percentage changed from ${oldValues.vatPercentage}% to ${updatedInvoice.vatPercentage}%`);
+      }
+      if (oldValues.discountPercentage !== updatedInvoice.discountPercentage) {
+        changesList.push(`Discount percentage changed from ${oldValues.discountPercentage}% to ${updatedInvoice.discountPercentage}%`);
+      }
+      if (oldValues.shippingCost !== updatedInvoice.shippingCost) {
+        changesList.push(`Shipping cost changed from ${formatPrice(oldValues.shippingCost)} to ${formatPrice(updatedInvoice.shippingCost)}`);
+      }
+      
+      // 7. Check payment changes
+      if (oldValues.amountPaid !== updatedInvoice.amountPaid) {
+        changesList.push(`Paid amount changed from ${formatPrice(oldValues.amountPaid)} to ${formatPrice(updatedInvoice.amountPaid)}`);
+      }
+      if (oldValues.paymentStatus !== updatedInvoice.paymentStatus) {
+        changesList.push(`Payment status changed from ${oldValues.paymentStatus} to ${updatedInvoice.paymentStatus}`);
+      }
+      
+      // 8. Check notes and terms changes
+      if (oldValues.notes !== updatedInvoice.notes) {
+        changesList.push(`Notes updated`);
+      }
+      if (oldValues.terms !== updatedInvoice.terms) {
+        changesList.push(`Terms & conditions updated`);
+      }
+      
+      // 9. Check custom fields changes
+      if (JSON.stringify(oldValues.customFields) !== JSON.stringify(updatedInvoice.customFields)) {
+        changesList.push(`Custom fields updated`);
+      }
+      
+      // 10. Check items changes
+      if (JSON.stringify(oldValues.items) !== JSON.stringify(updatedInvoice.items)) {
+        changesList.push(`Product items updated`);
+      }
+      
+      // DEBUG: Log what we found
+      console.log(`📝 Detected ${changesList.length} changes:`);
+      changesList.forEach(change => console.log(`   - ${change}`));
+      
+      // If there are ANY changes, send email
+      if (changesList.length > 0) {
         const customerDetails = {
-          companyName: updatedInvoice.customer.companyName,
-          contactPerson: updatedInvoice.customer.contactPerson,
-          email: updatedInvoice.customer.email,
-          phone: updatedInvoice.customer.phone,
-          whatsapp: updatedInvoice.customer.whatsapp
+          companyName: updatedInvoice.customer?.companyName,
+          contactPerson: updatedInvoice.customer?.contactPerson,
+          email: updatedInvoice.customer?.email,
+          phone: updatedInvoice.customer?.phone,
+          whatsapp: updatedInvoice.customer?.whatsapp
         };
         
-        // Create a description of changes
-        let changes = [];
-        if (oldValues.finalTotal !== updatedInvoice.finalTotal) {
-          changes.push(`Total amount changed from ${formatPrice(oldValues.finalTotal)} to ${formatPrice(updatedInvoice.finalTotal)}`);
-        }
-        if (oldValues.amountPaid !== updatedInvoice.amountPaid) {
-          changes.push(`Paid amount changed from ${formatPrice(oldValues.amountPaid)} to ${formatPrice(updatedInvoice.amountPaid)}`);
-        }
-        if (oldValues.paymentStatus !== updatedInvoice.paymentStatus) {
-          changes.push(`Payment status changed from ${oldValues.paymentStatus} to ${updatedInvoice.paymentStatus}`);
-        }
+        // Create a detailed change description
+        const changesText = changesList.join('. ');
         
-        const changesText = changes.join('. ');
+        console.log(`📧 Sending update email to: ${customerDetails.email}`);
+        console.log(`📧 Changes: ${changesText}`);
         
         await sendInvoiceUpdateEmails(updatedInvoice, customerDetails, changesText);
-        console.log(`📧 Invoice update emails sent for: ${updatedInvoice.invoiceNumber}`);
+        console.log(`✅ Invoice update email sent for: ${updatedInvoice.invoiceNumber}`);
+      } else {
+        console.log(`ℹ️ No changes detected for invoice ${updatedInvoice.invoiceNumber}, email not sent`);
       }
     } catch (emailError) {
       console.error('❌ Failed to send invoice update emails:', emailError.message);
+      console.error('❌ Error details:', emailError);
     }
-     // --- END EMAILS ---
+    // --- END EMAILS ---
 
     res.json({
       success: true,

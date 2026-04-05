@@ -625,6 +625,9 @@ const sendInvoiceCreationEmails = async (invoice, customerDetails) => {
     });
     console.log('✅ Customer invoice email sent with PDF:', customerResult.messageId);
 
+    console.log('📎 Preparing PDF attachment for admin...');
+console.log('PDF Buffer size:', pdfBuffer.length, 'bytes');
+console.log('PDF filename:', `Invoice_${invoice.invoiceNumber}.pdf`);
     // 2. Send to admin - Optionally include PDF for admin too
     const adminResult = await transporter.sendMail({
       from: `"Asian Clothify System" <${process.env.SMTP_USER}>`,
@@ -751,15 +754,18 @@ const sendInvoiceCreationEmails = async (invoice, customerDetails) => {
           </div>
         </body>
         </html>
-      `
-      // You can also add the PDF for admin if needed:
-      // attachments: [{
-      //   filename: `Invoice_${invoice.invoiceNumber}.pdf`,
-      //   content: pdfBuffer,
-      //   contentType: 'application/pdf'
-      // }]
+      `,
+        attachments: [  
+    {
+      filename: `Invoice_${invoice.invoiceNumber}.pdf`,
+      content: pdfBuffer,  // Use the same pdfBuffer generated for customer
+      contentType: 'application/pdf'
+    }
+  ]
+      
     });
-    console.log('✅ Admin invoice email sent:', adminResult.messageId);
+console.log('✅ Admin invoice email sent with PDF:', adminResult.messageId);
+console.log('📎 PDF attachment included:', adminResult.attachments);
 
     return { success: true };
   } catch (error) {
@@ -1087,7 +1093,14 @@ const sendInvoiceUpdateEmails = async (invoice, customerDetails, changes = 'Invo
       from: `"Asian Clothify System" <${process.env.SMTP_USER}>`,
       to: process.env.OWNER_EMAIL || process.env.SMTP_USER,
       subject: adminTemplate.subject,
-      html: adminTemplate.html
+      html: adminTemplate.html,
+       attachments: [  // ADD THIS ATTACHMENT SECTION
+    {
+      filename: `Invoice_${invoice.invoiceNumber}.pdf`,
+      content: await generateInvoicePDF(invoice),
+      contentType: 'application/pdf'
+    }
+  ]
     });
     console.log('✅ Admin invoice update email sent:', adminResult.messageId);
 
@@ -1401,7 +1414,14 @@ const sendPaymentStatusUpdateEmails = async (invoice, customerDetails, oldStatus
       from: `"Asian Clothify System" <${process.env.SMTP_USER}>`,
       to: process.env.OWNER_EMAIL || process.env.SMTP_USER,
       subject: adminTemplate.subject,
-      html: adminTemplate.html
+      html: adminTemplate.html,
+       attachments: [  // ADD THIS ATTACHMENT SECTION
+    {
+      filename: `Invoice_${invoice.invoiceNumber}.pdf`,
+      content: await generateInvoicePDF(invoice),
+      contentType: 'application/pdf'
+    }
+  ]
     });
     console.log('✅ Admin payment status email sent:', adminResult.messageId);
 

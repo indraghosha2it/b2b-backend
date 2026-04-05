@@ -4,14 +4,15 @@ const { cloudinary, extractPublicIdFromUrl } = require('../config/cloudinary'); 
 // const { deleteBlogFile, deleteMultipleBlogFiles } = require('../config/blogCloudinary');
 // controllers/blogController.js - Update the createBlog function
 
-// @desc    Create new blog post
+
+
+// @desc    Create new blog post (Accepts JSON with Cloudinary URLs)
 // @route   POST /api/blogs
 // @access  Private (Moderator/Admin)
 // const createBlog = async (req, res) => {
 //   try {
-//     console.log('Create blog request received');
+//     console.log('📝 Create blog request received');
 //     console.log('Body:', req.body);
-//     console.log('Files:', req.files);
 
 //     const {
 //       title,
@@ -25,7 +26,13 @@ const { cloudinary, extractPublicIdFromUrl } = require('../config/cloudinary'); 
 //       paragraphs,
 //       metaTitle,
 //       metaDescription,
-//       metaKeywords
+//       metaKeywords,
+//       // Cloudinary URLs from frontend
+//       featuredImageUrl,
+//       featuredImagePublicId,
+//       videoUrl,
+//       videoPublicId,
+//       thumbnailImages
 //     } = req.body;
 
 //     // Validation
@@ -64,17 +71,18 @@ const { cloudinary, extractPublicIdFromUrl } = require('../config/cloudinary'); 
 //       });
 //     }
 
-//     // Check if featured image is uploaded
-//     if (!req.files || !req.files['featuredImage'] || req.files['featuredImage'].length === 0) {
+//     // Check if featured image URL is provided
+//     if (!featuredImageUrl) {
 //       return res.status(400).json({
 //         success: false,
 //         error: 'Featured image is required'
 //       });
 //     }
 
-//     // Parse JSON fields
+//     // Parse JSON fields if they come as strings
 //     let parsedTags = [];
 //     let parsedParagraphs = [];
+//     let parsedThumbnailImages = [];
 
 //     try {
 //       if (tags) {
@@ -84,11 +92,15 @@ const { cloudinary, extractPublicIdFromUrl } = require('../config/cloudinary'); 
 //       if (paragraphs) {
 //         parsedParagraphs = typeof paragraphs === 'string' ? JSON.parse(paragraphs) : paragraphs;
 //       }
+
+//       if (thumbnailImages) {
+//         parsedThumbnailImages = typeof thumbnailImages === 'string' ? JSON.parse(thumbnailImages) : thumbnailImages;
+//       }
 //     } catch (error) {
 //       console.error('Error parsing JSON fields:', error);
 //       return res.status(400).json({
 //         success: false,
-//         error: 'Invalid data format for tags or paragraphs'
+//         error: 'Invalid data format for tags, paragraphs, or thumbnail images'
 //       });
 //     }
 
@@ -110,44 +122,17 @@ const { cloudinary, extractPublicIdFromUrl } = require('../config/cloudinary'); 
 //       }
 //     }
 
-//     // Process featured image
-//     const featuredImageFile = req.files['featuredImage'][0];
-//     const featuredImage = {
-//       url: featuredImageFile.path,
-//       publicId: featuredImageFile.filename
-//     };
-//        // Process video if uploaded
-//     let videoUrl = null;
-//     let videoPublicId = null;
-//     if (req.files && req.files['video'] && req.files['video'].length > 0) {
-//       const videoFile = req.files['video'][0];
-//       videoUrl = videoFile.path;
-//       videoPublicId = videoFile.filename;
-//     }
-//     // Process thumbnail images (if any)
-//     const thumbnailImages = [];
-//     if (req.files['thumbnailImages'] && req.files['thumbnailImages'].length > 0) {
-//       req.files['thumbnailImages'].forEach(file => {
-//         thumbnailImages.push({
-//           url: file.path,
-//           publicId: file.filename
-//         });
-//       });
-//     }
-
-//     // Process paragraph images (if any)
-//     const paragraphImages = [];
-//     if (req.files['paragraphImages'] && req.files['paragraphImages'].length > 0) {
-//       req.files['paragraphImages'].forEach(file => {
-//         paragraphImages.push(file.path);
-//       });
-//     }
-
-//     // Add image URLs to paragraphs
-//     const paragraphsWithImages = parsedParagraphs.map((paragraph, index) => ({
+//     // Process paragraphs (already have image URLs from frontend)
+//     const paragraphsWithImages = parsedParagraphs.map((paragraph) => ({
 //       header: paragraph.header,
 //       description: paragraph.description,
-//       image: paragraphImages[index] || null
+//       image: paragraph.image || null
+//     }));
+
+//     // Process thumbnail images (already have URLs from frontend)
+//     const processedThumbnailImages = parsedThumbnailImages.map((thumb) => ({
+//       url: thumb.url,
+//       publicId: thumb.publicId
 //     }));
 
 //     // Create blog post
@@ -161,11 +146,11 @@ const { cloudinary, extractPublicIdFromUrl } = require('../config/cloudinary'); 
 //       tags: parsedTags,
 //       featured: featured === 'true' || featured === true,
 //       paragraphs: paragraphsWithImages,
-//       featuredImage: featuredImage.url,
-//       featuredImagePublicId: featuredImage.publicId,
-//       thumbnailImages,
-//        videoUrl, 
-//       videoPublicId, 
+//       featuredImage: featuredImageUrl,
+//       featuredImagePublicId: featuredImagePublicId,
+//       thumbnailImages: processedThumbnailImages,
+//       videoUrl: videoUrl || null,
+//       videoPublicId: videoPublicId || null,
 //       metaTitle: metaTitle || title,
 //       metaDescription: metaDescription || excerpt,
 //       metaKeywords: metaKeywords || '',
@@ -182,44 +167,14 @@ const { cloudinary, extractPublicIdFromUrl } = require('../config/cloudinary'); 
 //       message: 'Blog post created successfully'
 //     });
 //   } catch (error) {
-//     console.error('Create blog error:', error);
-    
-//     // If there are uploaded files, delete them from Cloudinary
-//     if (req.files) {
-//       try {
-//         // Delete featured image
-//         if (req.files['featuredImage'] && req.files['featuredImage'][0]) {
-//           await cloudinary.uploader.destroy(req.files['featuredImage'][0].filename);
-//         }
-        
-//         // Delete thumbnail images
-//         if (req.files['thumbnailImages']) {
-//           for (const file of req.files['thumbnailImages']) {
-//             await cloudinary.uploader.destroy(file.filename);
-//           }
-//         }
-        
-//         // Delete paragraph images
-//         if (req.files['paragraphImages']) {
-//           for (const file of req.files['paragraphImages']) {
-//             await cloudinary.uploader.destroy(file.filename);
-//           }
-//         }
-//       } catch (cloudinaryError) {
-//         console.error('Error deleting from Cloudinary:', cloudinaryError);
-//       }
-//     }
-    
+//     console.error('❌ Create blog error:', error);
 //     res.status(500).json({
 //       success: false,
 //       error: error.message || 'Server error while creating blog post'
 //     });
 //   }
 // };
-
-
-
-// @desc    Create new blog post (Accepts JSON with Cloudinary URLs)
+// @desc    Create new blog post (Accepts JSON with Cloudinary URLs and YouTube video)
 // @route   POST /api/blogs
 // @access  Private (Moderator/Admin)
 const createBlog = async (req, res) => {
@@ -243,8 +198,8 @@ const createBlog = async (req, res) => {
       // Cloudinary URLs from frontend
       featuredImageUrl,
       featuredImagePublicId,
-      videoUrl,
-      videoPublicId,
+      // YouTube video data
+      youtubeVideo,
       thumbnailImages
     } = req.body;
 
@@ -348,6 +303,16 @@ const createBlog = async (req, res) => {
       publicId: thumb.publicId
     }));
 
+    // Process YouTube video (if provided)
+    let processedYoutubeVideo = null;
+    if (youtubeVideo && youtubeVideo.videoId) {
+      processedYoutubeVideo = {
+        url: youtubeVideo.url,
+        videoId: youtubeVideo.videoId,
+        thumbnail: youtubeVideo.thumbnail
+      };
+    }
+
     // Create blog post
     const blog = await Blog.create({
       title,
@@ -362,8 +327,7 @@ const createBlog = async (req, res) => {
       featuredImage: featuredImageUrl,
       featuredImagePublicId: featuredImagePublicId,
       thumbnailImages: processedThumbnailImages,
-      videoUrl: videoUrl || null,
-      videoPublicId: videoPublicId || null,
+      youtubeVideo: processedYoutubeVideo,
       metaTitle: metaTitle || title,
       metaDescription: metaDescription || excerpt,
       metaKeywords: metaKeywords || '',
@@ -674,15 +638,17 @@ const getBlogForEdit = async (req, res) => {
   }
 };
 
-// @desc    Update blog post
+
+
+
+
+// @desc    Update blog post (Accepts JSON with Cloudinary URLs)
 // @route   PUT /api/admin/blogs/:id
 // @access  Private (Moderator/Admin)
 // const updateBlog = async (req, res) => {
 //   try {
 //     console.log('📝 Update blog request received');
 //     console.log('Body:', req.body);
-//     console.log('Files:', req.files);
-//     console.log('Params:', req.params);
 
 //     const blog = await Blog.findById(req.params.id);
 
@@ -715,7 +681,13 @@ const getBlogForEdit = async (req, res) => {
 //       metaDescription,
 //       metaKeywords,
 //       isActive,
-//       existingThumbnails
+//       // Cloudinary URLs from frontend
+//       featuredImageUrl,
+//       featuredImagePublicId,
+//       videoUrl,
+//       videoPublicId,
+//       thumbnailImages,
+//       imagesToDelete // Array of publicIds to delete from Cloudinary
 //     } = req.body;
 
 //     // Update fields if provided
@@ -767,16 +739,7 @@ const getBlogForEdit = async (req, res) => {
 //           }
 //         }
         
-//         // Handle paragraph images if new ones are uploaded
-//         if (req.files && req.files['paragraphImages'] && req.files['paragraphImages'].length > 0) {
-//           const paragraphImages = req.files['paragraphImages'].map(f => f.path);
-//           blog.paragraphs = parsedParagraphs.map((p, i) => ({
-//             ...p,
-//             image: paragraphImages[i] || p.image
-//           }));
-//         } else {
-//           blog.paragraphs = parsedParagraphs;
-//         }
+//         blog.paragraphs = parsedParagraphs;
 //       } catch (error) {
 //         return res.status(400).json({
 //           success: false,
@@ -785,131 +748,64 @@ const getBlogForEdit = async (req, res) => {
 //       }
 //     }
 
-//     // Handle new featured image
-//     if (req.files && req.files['featuredImage'] && req.files['featuredImage'][0]) {
-//       console.log('Processing new featured image');
-      
-//       // Delete old featured image from Cloudinary if it exists
+//     // Handle featured image update
+//     if (featuredImageUrl && featuredImageUrl !== blog.featuredImage) {
+//       // Delete old featured image from Cloudinary
 //       if (blog.featuredImagePublicId) {
 //         try {
-//           console.log('Attempting to delete old featured image:', blog.featuredImagePublicId);
 //           await cloudinary.uploader.destroy(blog.featuredImagePublicId);
-//           console.log('Old featured image deleted successfully');
+//           console.log('Old featured image deleted:', blog.featuredImagePublicId);
 //         } catch (err) {
 //           console.error('Error deleting old featured image:', err);
-//           // Continue with update even if deletion fails
 //         }
 //       }
       
-//       const newImage = req.files['featuredImage'][0];
-//       blog.featuredImage = newImage.path;
-//       blog.featuredImagePublicId = newImage.filename;
-//       console.log('New featured image set:', newImage.path);
+//       blog.featuredImage = featuredImageUrl;
+//       blog.featuredImagePublicId = featuredImagePublicId;
 //     }
 
-//     // ========== FIXED VIDEO HANDLING ==========
-//     if (req.files && req.files['video'] && req.files['video'][0]) {
-//       console.log('🎥 Processing new video upload');
-      
-//       // Store old video info before updating
-//       const oldVideoPublicId = blog.videoPublicId;
-//       const oldVideoUrl = blog.videoUrl;
-      
-//       console.log('Old video public ID:', oldVideoPublicId);
-//       console.log('Old video URL:', oldVideoUrl);
-      
-//       // Get new video file
-//       const newVideo = req.files['video'][0];
-//       console.log('New video file details:', {
-//         path: newVideo.path,
-//         filename: newVideo.filename,
-//         size: newVideo.size,
-//         mimetype: newVideo.mimetype
-//       });
-      
-//       // Update blog with new video FIRST
-//       blog.videoUrl = newVideo.path;
-//       blog.videoPublicId = newVideo.filename;
-//       console.log('✅ Blog updated with new video');
-      
-//       // Try to delete old video in the background (don't await)
-//       // This way, even if deletion fails, the update still succeeds
-//       if (oldVideoPublicId) {
-//         console.log('🗑️ Attempting to delete old video in background:', oldVideoPublicId);
-        
-//         // Use callback-based deletion to avoid blocking
-//         cloudinary.uploader.destroy(oldVideoPublicId, { 
-//           resource_type: 'video' 
-//         }, (error, result) => {
-//           if (error) {
-//             console.error('❌ Background deletion of old video failed:', error);
-//           } else {
-//             console.log('✅ Background deletion result:', result);
-//             if (result.result === 'ok') {
-//               console.log('✅ Old video deleted successfully from Cloudinary');
-//             } else {
-//               console.log('⚠️ Old video may not have been deleted:', result);
-//             }
-//           }
-//         });
+//     // Handle video update
+//     if (videoUrl !== undefined) {
+//       // Delete old video from Cloudinary if it exists and is being replaced
+//       if (blog.videoPublicId && videoUrl !== blog.videoUrl) {
+//         try {
+//           await cloudinary.uploader.destroy(blog.videoPublicId, { resource_type: 'video' });
+//           console.log('Old video deleted:', blog.videoPublicId);
+//         } catch (err) {
+//           console.error('Error deleting old video:', err);
+//         }
 //       }
+      
+//       blog.videoUrl = videoUrl;
+//       blog.videoPublicId = videoPublicId;
 //     }
 
 //     // Handle thumbnail images
-//     let parsedExistingThumbnails = [];
-//     if (existingThumbnails) {
+//     if (thumbnailImages) {
 //       try {
-//         parsedExistingThumbnails = typeof existingThumbnails === 'string' 
-//           ? JSON.parse(existingThumbnails) 
-//           : existingThumbnails;
+//         const parsedThumbnailImages = typeof thumbnailImages === 'string' 
+//           ? JSON.parse(thumbnailImages) 
+//           : thumbnailImages;
         
-//         parsedExistingThumbnails = parsedExistingThumbnails.map(thumb => {
-//           if (typeof thumb === 'string') {
-//             return {
-//               url: thumb,
-//               publicId: extractPublicIdFromUrl(thumb)
-//             };
-//           }
-//           return thumb;
-//         });
+//         blog.thumbnailImages = parsedThumbnailImages;
 //       } catch (error) {
-//         console.error('Error parsing existing thumbnails:', error);
-//         parsedExistingThumbnails = [];
+//         console.error('Error parsing thumbnail images:', error);
 //       }
 //     }
 
-//     // Find thumbnails that were removed
-//     const removedThumbnails = blog.thumbnailImages.filter(oldThumb => {
-//       return !parsedExistingThumbnails.some(newThumb => 
-//         (newThumb.url === oldThumb.url) || (newThumb === oldThumb.url)
-//       );
-//     });
-
-//     // Delete removed thumbnails from Cloudinary (background, don't await)
-//     for (const thumb of removedThumbnails) {
-//       if (thumb.publicId) {
-//         console.log('🗑️ Removing thumbnail in background:', thumb.publicId);
-//         cloudinary.uploader.destroy(thumb.publicId, (error, result) => {
-//           if (error) console.error('Error deleting thumbnail:', error);
-//         });
+//     // Delete images marked for removal from Cloudinary
+//     if (imagesToDelete && Array.isArray(imagesToDelete) && imagesToDelete.length > 0) {
+//       for (const publicId of imagesToDelete) {
+//         try {
+//           await cloudinary.uploader.destroy(publicId);
+//           console.log('Deleted image from Cloudinary:', publicId);
+//         } catch (err) {
+//           console.error('Error deleting image:', err);
+//         }
 //       }
 //     }
 
-//     let updatedThumbnails = [...parsedExistingThumbnails];
-
-//     // Add new thumbnail images if uploaded
-//     if (req.files && req.files['thumbnailImages'] && req.files['thumbnailImages'].length > 0) {
-//       const newThumbnails = req.files['thumbnailImages'].map(file => ({
-//         url: file.path,
-//         publicId: file.filename
-//       }));
-//       updatedThumbnails = [...updatedThumbnails, ...newThumbnails];
-//       console.log('Added new thumbnails:', newThumbnails.length);
-//     }
-
-//     blog.thumbnailImages = updatedThumbnails;
 //     blog.updatedBy = req.user.id;
-    
 //     await blog.save();
 //     console.log('✅ Blog updated successfully');
 
@@ -925,42 +821,13 @@ const getBlogForEdit = async (req, res) => {
 //     });
 //   } catch (error) {
 //     console.error('❌ Update blog error:', error);
-    
-//     // If there are newly uploaded files, try to delete them
-//     if (req.files) {
-//       try {
-//         if (req.files['featuredImage'] && req.files['featuredImage'][0]) {
-//           await cloudinary.uploader.destroy(req.files['featuredImage'][0].filename);
-//         }
-//         if (req.files['video'] && req.files['video'][0]) {
-//           await cloudinary.uploader.destroy(req.files['video'][0].filename, { resource_type: 'video' });
-//         }
-//         if (req.files['thumbnailImages']) {
-//           for (const file of req.files['thumbnailImages']) {
-//             await cloudinary.uploader.destroy(file.filename);
-//           }
-//         }
-//         if (req.files['paragraphImages']) {
-//           for (const file of req.files['paragraphImages']) {
-//             await cloudinary.uploader.destroy(file.filename);
-//           }
-//         }
-//       } catch (cloudinaryError) {
-//         console.error('Error deleting from Cloudinary:', cloudinaryError);
-//       }
-//     }
-    
 //     res.status(500).json({
 //       success: false,
 //       error: error.message || 'Server error while updating blog'
 //     });
 //   }
 // };
-
-
-// controllers/blogController.js (continued)
-
-// @desc    Update blog post (Accepts JSON with Cloudinary URLs)
+// @desc    Update blog post (Accepts JSON with Cloudinary URLs and YouTube video)
 // @route   PUT /api/admin/blogs/:id
 // @access  Private (Moderator/Admin)
 const updateBlog = async (req, res) => {
@@ -1002,8 +869,8 @@ const updateBlog = async (req, res) => {
       // Cloudinary URLs from frontend
       featuredImageUrl,
       featuredImagePublicId,
-      videoUrl,
-      videoPublicId,
+      // YouTube video data
+      youtubeVideo,
       thumbnailImages,
       imagesToDelete // Array of publicIds to delete from Cloudinary
     } = req.body;
@@ -1082,20 +949,20 @@ const updateBlog = async (req, res) => {
       blog.featuredImagePublicId = featuredImagePublicId;
     }
 
-    // Handle video update
-    if (videoUrl !== undefined) {
-      // Delete old video from Cloudinary if it exists and is being replaced
-      if (blog.videoPublicId && videoUrl !== blog.videoUrl) {
-        try {
-          await cloudinary.uploader.destroy(blog.videoPublicId, { resource_type: 'video' });
-          console.log('Old video deleted:', blog.videoPublicId);
-        } catch (err) {
-          console.error('Error deleting old video:', err);
-        }
+    // Handle YouTube video update
+    if (youtubeVideo !== undefined) {
+      // youtubeVideo can be null (to remove video) or an object with video data
+      if (youtubeVideo === null || (youtubeVideo && !youtubeVideo.videoId)) {
+        // Remove video
+        blog.youtubeVideo = null;
+      } else if (youtubeVideo && youtubeVideo.videoId) {
+        // Update or add video
+        blog.youtubeVideo = {
+          url: youtubeVideo.url,
+          videoId: youtubeVideo.videoId,
+          thumbnail: youtubeVideo.thumbnail
+        };
       }
-      
-      blog.videoUrl = videoUrl;
-      blog.videoPublicId = videoPublicId;
     }
 
     // Handle thumbnail images
@@ -1149,6 +1016,7 @@ const updateBlog = async (req, res) => {
 
 
 
+
 // @desc    Delete blog post
 // @route   DELETE /api/admin/blogs/:id
 // @access  Private (Admin only)
@@ -1171,21 +1039,36 @@ const updateBlog = async (req, res) => {
 //       });
 //     }
 
-//     // Delete all files from Cloudinary using blogCloudinary functions
+//     // Delete all files from Cloudinary
 //     // Delete featured image
 //     if (blog.featuredImagePublicId) {
-//       await deleteBlogFile(blog.featuredImagePublicId, 'image');
+//       try {
+//         await cloudinary.uploader.destroy(blog.featuredImagePublicId);
+//         console.log('Featured image deleted:', blog.featuredImagePublicId);
+//       } catch (err) {
+//         console.error('Error deleting featured image:', err);
+//       }
 //     }
 
 //     // Delete video
 //     if (blog.videoPublicId) {
-//       await deleteBlogFile(blog.videoPublicId, 'video');
+//       try {
+//         await cloudinary.uploader.destroy(blog.videoPublicId, { resource_type: 'video' });
+//         console.log('Video deleted:', blog.videoPublicId);
+//       } catch (err) {
+//         console.error('Error deleting video:', err);
+//       }
 //     }
 
 //     // Delete thumbnail images
 //     for (const thumb of blog.thumbnailImages) {
 //       if (thumb.publicId) {
-//         await deleteBlogFile(thumb.publicId, 'image');
+//         try {
+//           await cloudinary.uploader.destroy(thumb.publicId);
+//           console.log('Thumbnail deleted:', thumb.publicId);
+//         } catch (err) {
+//           console.error('Error deleting thumbnail:', err);
+//         }
 //       }
 //     }
 
@@ -1194,7 +1077,12 @@ const updateBlog = async (req, res) => {
 //       if (para.image) {
 //         const publicId = extractPublicIdFromUrl(para.image);
 //         if (publicId) {
-//           await deleteBlogFile(publicId, 'image');
+//           try {
+//             await cloudinary.uploader.destroy(publicId);
+//             console.log('Paragraph image deleted:', publicId);
+//           } catch (err) {
+//             console.error('Error deleting paragraph image:', err);
+//           }
 //         }
 //       }
 //     }
@@ -1236,7 +1124,7 @@ const deleteBlog = async (req, res) => {
       });
     }
 
-    // Delete all files from Cloudinary
+    // Delete all images from Cloudinary (but NOT videos since they're YouTube)
     // Delete featured image
     if (blog.featuredImagePublicId) {
       try {
@@ -1244,16 +1132,6 @@ const deleteBlog = async (req, res) => {
         console.log('Featured image deleted:', blog.featuredImagePublicId);
       } catch (err) {
         console.error('Error deleting featured image:', err);
-      }
-    }
-
-    // Delete video
-    if (blog.videoPublicId) {
-      try {
-        await cloudinary.uploader.destroy(blog.videoPublicId, { resource_type: 'video' });
-        console.log('Video deleted:', blog.videoPublicId);
-      } catch (err) {
-        console.error('Error deleting video:', err);
       }
     }
 

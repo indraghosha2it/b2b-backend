@@ -89,13 +89,29 @@ const blogSchema = new mongoose.Schema({
     type: String,
     trim: true
   }],
-   videoUrl: {
-    type: String,
-    trim: true
+  youtubeVideo: {
+    url: {
+      type: String,
+      trim: true
+    },
+    videoId: {
+      type: String,
+      trim: true
+    },
+    thumbnail: {
+      type: String,
+      trim: true
+    }
   },
-  videoPublicId: {
-    type: String
-  },
+  //  videoUrl: {
+  //   type: String,
+  //   trim: true
+  // },
+  // videoPublicId: {
+  //   type: String
+  // },
+
+
   featured: {
     type: Boolean,
     default: false

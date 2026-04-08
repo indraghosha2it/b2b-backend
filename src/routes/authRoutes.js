@@ -52,7 +52,8 @@ const {
    googleAuth,
   completeProfile,
   logoutUser,
-  googleSignup
+  googleSignup,
+  checkProfileStatus
 } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -75,6 +76,7 @@ router.get('/me', protect, getMe);
 router.put('/profile', protect, updateProfile);
 router.put('/change-password', protect, changePassword);
 router.post('/logout', protect, logoutUser);
+router.get('/profile-status', protect, checkProfileStatus);
 
 // Admin only route
 router.get('/users', protect, authorize('admin'), (req, res) => {

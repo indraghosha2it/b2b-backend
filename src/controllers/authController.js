@@ -1273,10 +1273,79 @@ const googleAuth = async (req, res) => {
 // @desc    Complete profile after Google signup
 // @route   POST /api/auth/complete-profile
 // @access  Private
+// const completeProfile = async (req, res) => {
+//   try {
+//     const {
+//       companyName,
+//       phone,
+//       whatsapp,
+//       country,
+//       address,
+//       city,
+//       zipCode,
+//       businessType
+//     } = req.body;
+
+//     // Validate required fields
+//     const missingFields = [];
+//     if (!companyName) missingFields.push('companyName');
+//     if (!phone) missingFields.push('phone');
+//     if (!country) missingFields.push('country');
+//     if (!address) missingFields.push('address');
+//     if (!city) missingFields.push('city');
+//     if (!zipCode) missingFields.push('zipCode');
+
+//     if (missingFields.length > 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: `Missing required fields: ${missingFields.join(', ')}`
+//       });
+//     }
+
+//     const user = await User.findById(req.user.id);
+
+//     if (!user) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'User not found'
+//       });
+//     }
+
+//     // Update user profile
+//     user.companyName = companyName;
+//     user.phone = phone;
+//     user.whatsapp = whatsapp || '';
+//     user.country = country;
+//     user.address = address;
+//     user.city = city;
+//     user.zipCode = zipCode;
+//     user.businessType = businessType || user.businessType;
+
+//     await user.save();
+
+//     res.json({
+//       success: true,
+//       message: 'Profile completed successfully',
+//       user: user.toJSON()
+//     });
+
+//   } catch (error) {
+//     console.error('❌ Complete profile error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Failed to complete profile'
+//     });
+//   }
+// };
+
+// @desc    Complete profile after Google signup or incomplete registration
+// @route   POST /api/auth/complete-profile
+// @access  Private
 const completeProfile = async (req, res) => {
   try {
     const {
       companyName,
+      contactPerson,
       phone,
       whatsapp,
       country,
@@ -1286,19 +1355,15 @@ const completeProfile = async (req, res) => {
       businessType
     } = req.body;
 
-    // Validate required fields
-    const missingFields = [];
-    if (!companyName) missingFields.push('companyName');
-    if (!phone) missingFields.push('phone');
-    if (!country) missingFields.push('country');
-    if (!address) missingFields.push('address');
-    if (!city) missingFields.push('city');
-    if (!zipCode) missingFields.push('zipCode');
-
+    // Validate required fields (all are required for complete profile)
+    const requiredFields = ['companyName', 'contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
+    const missingFields = requiredFields.filter(field => !req.body[field] || req.body[field] === '');
+    
     if (missingFields.length > 0) {
       return res.status(400).json({
         success: false,
-        error: `Missing required fields: ${missingFields.join(', ')}`
+        error: `Missing required fields: ${missingFields.join(', ')}`,
+        missingFields
       });
     }
 
@@ -1311,22 +1376,47 @@ const completeProfile = async (req, res) => {
       });
     }
 
-    // Update user profile
+    // Update all required fields
     user.companyName = companyName;
+    user.contactPerson = contactPerson;
     user.phone = phone;
-    user.whatsapp = whatsapp || '';
+    user.whatsapp = whatsapp;
     user.country = country;
     user.address = address;
     user.city = city;
     user.zipCode = zipCode;
-    user.businessType = businessType || user.businessType;
-
-    await user.save();
+    
+    if (businessType) user.businessType = businessType;
+    
+    // Mark profile as completed
+    user.profileCompleted = true;
+    
+    // If this was a Google user, make sure all fields are saved properly
+    if (user.authProvider === 'google') {
+      // Remove any validation that might block saving
+      await user.save({ validateBeforeSave: false });
+    } else {
+      await user.save();
+    }
+    
+    // Generate fresh token with updated info
+    const token = jwt.sign(
+      { 
+        id: user._id, 
+        email: user.email,
+        role: user.role,
+        companyName: user.companyName
+      },
+      process.env.JWT_SECRET || 'your-secret-key-change-this',
+      { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    );
 
     res.json({
       success: true,
       message: 'Profile completed successfully',
-      user: user.toJSON()
+      token,
+      user: user.toJSON(),
+      isComplete: true
     });
 
   } catch (error) {
@@ -1337,6 +1427,9 @@ const completeProfile = async (req, res) => {
     });
   }
 };
+
+
+
 // @desc    Google Signup (for new users)
 // @route   POST /api/auth/google-signup
 // @access  Public
@@ -1449,6 +1542,57 @@ const googleSignup = async (req, res) => {
 
 
 
+// @desc    Check if user profile is complete
+// @route   GET /api/auth/profile-status
+// @access  Private
+const checkProfileStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('companyName contactPerson phone whatsapp country address city zipCode profileCompleted authProvider');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    // Define required fields based on auth provider
+    let requiredFields = ['companyName', 'contactPerson', 'phone', 'whatsapp', 'country', 'address', 'city', 'zipCode'];
+    
+    // For Google users, companyName and contactPerson might already be set
+    const missingFields = requiredFields.filter(field => {
+      const value = user[field];
+      return !value || value === '' || value === 'TBD';
+    });
+    
+    const isComplete = missingFields.length === 0;
+    
+    // Update profileCompleted status if needed
+    if (isComplete !== user.profileCompleted) {
+      user.profileCompleted = isComplete;
+      await user.save();
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        isComplete,
+        missingFields,
+        profileCompleted: user.profileCompleted,
+        authProvider: user.authProvider
+      }
+    });
+  } catch (error) {
+    console.error('❌ Check profile status error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error'
+    });
+  }
+};
+
+
+
 // @desc    Logout user
 // @route   POST /api/auth/logout
 // @access  Private
@@ -1474,6 +1618,7 @@ module.exports = {
   verifyResetOTP,
     googleAuth,
   completeProfile,
+  checkProfileStatus,
   googleSignup,
   logoutUser
 };

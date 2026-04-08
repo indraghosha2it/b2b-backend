@@ -20,6 +20,14 @@ const colorDetailSchema = new mongoose.Schema({
   totalForColor: {
     type: Number,
     default: 0
+  },
+   totalQuantity: {  // Add this for compatibility
+    type: Number,
+    default: 0
+  },
+   unitPrice: {  // ADD THIS - per color unit price
+    type: Number,
+    default: 0
   }
 }, { _id: false });
 
@@ -79,11 +87,27 @@ const inquiryCartSchema = new mongoose.Schema({
 });
 
 // Update totals before saving
+// inquiryCartSchema.pre('save', function() {
+//   this.totalItems = this.items.length;
+//   this.totalQuantity = this.items.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
+//   this.estimatedTotal = this.items.reduce((sum, item) => {
+//     return sum + (item.totalQuantity * item.unitPrice);
+//   }, 0);
+// });
+
+// Update totals before saving - based on per-color pricing
 inquiryCartSchema.pre('save', function() {
   this.totalItems = this.items.length;
   this.totalQuantity = this.items.reduce((sum, item) => sum + (item.totalQuantity || 0), 0);
-  this.estimatedTotal = this.items.reduce((sum, item) => {
-    return sum + (item.totalQuantity * item.unitPrice);
+  
+  // Calculate estimated total based on per-color pricing
+  this.estimatedTotal = this.items.reduce((total, item) => {
+    const itemTotal = (item.colors || []).reduce((sum, color) => {
+      const colorTotal = color.totalForColor || 0;
+      const colorPrice = color.unitPrice || 0;
+      return sum + (colorTotal * colorPrice);
+    }, 0);
+    return total + itemTotal;
   }, 0);
 });
 

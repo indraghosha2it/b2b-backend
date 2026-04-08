@@ -1,58 +1,4 @@
-// const mongoose = require('mongoose');
 
-// const categorySchema = new mongoose.Schema({
-//   name: {
-//     type: String,
-//     required: [true, 'Category name is required'],
-//     trim: true,
-//     unique: true,
-//     maxlength: [100, 'Category name cannot exceed 100 characters']
-//   },
-//   slug: {
-//     type: String,
-//     lowercase: true,
-//     unique: true
-//   },
-//   description: {
-//     type: String,
-//     trim: true,
-//     maxlength: [500, 'Description cannot exceed 500 characters']
-//   },
-//   image: {
-//     url: {
-//       type: String,
-//       required: [true, 'Category image is required']
-//     },
-//     publicId: {
-//       type: String,
-//       required: true
-//     }
-//   },
-//   isActive: {
-//     type: Boolean,
-//     default: true
-//   },
-//   createdBy: {
-//     type: mongoose.Schema.Types.ObjectId,
-//     ref: 'User',
-//     required: true
-//   }
-// }, {
-//   timestamps: true
-// });
-
-// // Create slug from name before saving - FIXED: removed 'next' parameter
-// categorySchema.pre('save', function() {
-//   if (this.isModified('name')) {
-//     this.slug = this.name
-//       .toLowerCase()
-//       .replace(/[^a-z0-9]+/g, '-')
-//       .replace(/(^-|-$)+/g, '');
-//   }
-//   // No need to call next() - just return
-// });
-
-// module.exports = mongoose.model('Category', categorySchema);
 
 
 const mongoose = require('mongoose');
@@ -60,6 +6,35 @@ const mongoose = require('mongoose');
 const additionalInfoSchema = new mongoose.Schema({
   fieldName: String,
   fieldValue: String
+});
+
+const subcategorySchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Subcategory name is required'],
+    trim: true,
+    maxlength: [100, 'Subcategory name cannot exceed 100 characters']
+  },
+  slug: {
+    type: String,
+    lowercase: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  productCount: {
+    type: Number,
+    default: 0
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 // Product embedded schema for category
@@ -109,6 +84,11 @@ const embeddedProductSchema = new mongoose.Schema({
     range: String,
     price: Number
   }],
+  subcategoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category.subcategories'
+  },
+  subcategoryName: String,
   isActive: {
     type: Boolean,
     default: true
@@ -164,6 +144,7 @@ const categorySchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  subcategories: [subcategorySchema],
   // Embedded products array
   products: [embeddedProductSchema],
   
@@ -183,6 +164,21 @@ categorySchema.pre('save', function() {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '');
+  }
+
+  // Generate slugs for subcategories
+  if (this.isModified('subcategories')) {
+    this.subcategories.forEach(subcat => {
+      if (subcat.isModified('name') || !subcat.slug) {
+        subcat.slug = subcat.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)+/g, '');
+      }
+      if (subcat.isModified('updatedAt')) {
+        subcat.updatedAt = Date.now();
+      }
+    });
   }
 });
 

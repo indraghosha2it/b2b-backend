@@ -21,6 +21,10 @@ const sizeQuantitySchema = new mongoose.Schema({
   quantity: {
     type: Number,
     default: 0
+  },
+   isAvailable: {  // ADD THIS - size availability status
+    type: Boolean,
+    default: true
   }
 }, { _id: false });
 
@@ -35,6 +39,18 @@ const colorDetailSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+   totalQuantity: {  // Add this for compatibility
+    type: Number,
+    default: 0
+  },
+   unitPrice: {  // ADD THIS - per color unit price
+    type: Number,
+    default: 0
+  },
+   isAvailable: {  // ADD THIS - color availability status
+    type: Boolean,
+    default: true
+  }
  
 }, { _id: false });
 
@@ -64,6 +80,14 @@ const productItemSchema = new mongoose.Schema({
   },
   productImage: String,
   specialInstructions: {  // Product-level special instructions
+    type: String,
+    default: ''
+  },
+    isAvailable: {  // ADD THIS - product availability status
+    type: Boolean,
+    default: true
+  },
+  adminNote: {  // ADD THIS - admin note (optional, you said you don't need it but keeping for completeness)
     type: String,
     default: ''
   }
@@ -104,6 +128,10 @@ const inquirySchema = new mongoose.Schema({
   },
   items: [productItemSchema], // Array of products, each with multiple colors
   specialInstructions: String, // Global inquiry-level instructions
+  adminNote: {  // ADD THIS - internal admin note
+    type: String,
+    default: ''
+  },
   attachments: [attachmentSchema],
   internalNotes: [internalNoteSchema],
   totalItems: {

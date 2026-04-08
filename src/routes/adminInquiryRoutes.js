@@ -9,7 +9,9 @@ const {
   updateInquiryStatus,
   addInternalNote,
   getDashboardStats,
-  deleteInquiry
+  deleteInquiry,
+  updateInquiryWithQuotation
+  
 } = require('../controllers/inquiryController');
 
 // All routes require authentication AND admin role
@@ -21,6 +23,7 @@ router.get('/', getAllInquiries);
 router.get('/all', getAllInquiriesForStats);
 router.get('/:id', getAdminInquiryById);
 router.put('/:id/status', updateInquiryStatus);
+router.put('/:id/quotation', updateInquiryWithQuotation);
 router.post('/:id/notes', addInternalNote);
 router.delete('/:id', deleteInquiry);
 

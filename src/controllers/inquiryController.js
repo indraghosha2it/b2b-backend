@@ -792,9 +792,118 @@ const { sendStatusUpdateEmail } = require('../utils/emailService');
 // @desc    Submit inquiry from cart
 // @route   POST /api/inquiry-cart/submit
 // @access  Private
+// const submitInquiry = async (req, res) => {
+//   try {
+//     const { specialInstructions, attachments } = req.body; // Global instructions
+
+//     console.log('📝 Submitting inquiry for user:', req.user.id);
+
+//     // Get user's cart
+//     const cart = await InquiryCart.findOne({ userId: req.user.id });
+//     if (!cart || cart.items.length === 0) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Cart is empty'
+//       });
+//     }
+
+//     // Get user details from req.user
+//     const userDetails = {
+//       companyName: req.user.companyName || '',
+//       contactPerson: req.user.contactPerson || '',
+//       email: req.user.email || '',
+//       phone: req.user.phone || '',
+//       whatsapp: req.user.whatsapp || '',
+//       country: req.user.country || '',
+//       address: req.user.address || '',
+//       city: req.user.city || '',
+//       zipCode: req.user.zipCode || ''
+//     };
+
+//     // Directly use cart items - they already have the correct structure!
+//     // No need to flatten or transform - just copy the structure
+//     const inquiryItems = cart.items.map(cartItem => {
+//       // Create a deep copy of the cart item with the exact same structure
+//       return {
+//         productId: cartItem.productId,
+//         productName: cartItem.productName,
+//         colors: cartItem.colors.map(color => ({
+//           color: color.color,
+//           sizeQuantities: color.sizeQuantities.filter(sq => sq.quantity > 0), // Only keep non-zero quantities
+//           totalForColor: color.totalForColor,
+//           specialInstructions: color.specialInstructions || ''
+//         })),
+//         totalQuantity: cartItem.totalQuantity,
+//         unitPrice: cartItem.unitPrice,
+//         moq: cartItem.moq,
+//         productImage: cartItem.productImage || '',
+//         specialInstructions: cartItem.specialInstructions || ''
+//       };
+//     });
+
+//     console.log(`📦 Creating inquiry with ${inquiryItems.length} products`);
+//     console.log('📊 Products:', inquiryItems.map(item => ({
+//       product: item.productName,
+//       colors: item.colors.length,
+//       totalQty: item.totalQuantity
+//     })));
+
+//     // Create inquiry with the exact same structure as cart
+//     const inquiry = new Inquiry({
+//       userId: req.user.id,
+//       userDetails,
+//       items: inquiryItems,
+//       specialInstructions: specialInstructions || '',
+//       attachments: attachments || [],
+//       totalItems: inquiryItems.length,
+//       totalQuantity: cart.totalQuantity,
+//       subtotal: cart.estimatedTotal,
+//       status: 'submitted'
+//     });
+
+//     await inquiry.save();
+
+//     console.log('✅ Inquiry created successfully:', inquiry.inquiryNumber);
+//     console.log('📦 Saved inquiry structure:', JSON.stringify({
+//       inquiryNumber: inquiry.inquiryNumber,
+//       items: inquiry.items.map(item => ({
+//         product: item.productName,
+//         colorsCount: item.colors.length,
+//         colors: item.colors.map(c => ({
+//           color: c.color.code,
+//           totalForColor: c.totalForColor,
+//           sizeCount: c.sizeQuantities.length
+//         }))
+//       }))
+//     }, null, 2));
+
+//     // Clear the cart after successful submission
+//     cart.items = [];
+//     await cart.save();
+
+//     res.status(201).json({
+//       success: true,
+//       data: {
+//         inquiryId: inquiry._id,
+//         inquiryNumber: inquiry.inquiryNumber,
+//         status: inquiry.status
+//       },
+//       message: 'Inquiry submitted successfully'
+//     });
+//   } catch (error) {
+//     console.error('❌ Submit inquiry error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Error submitting inquiry'
+//     });
+//   }
+// };
+
+// In your inquiryController.js - Update the submitInquiry function
+
 const submitInquiry = async (req, res) => {
   try {
-    const { specialInstructions, attachments } = req.body; // Global instructions
+    const { specialInstructions, attachments } = req.body;
 
     console.log('📝 Submitting inquiry for user:', req.user.id);
 
@@ -806,6 +915,9 @@ const submitInquiry = async (req, res) => {
         error: 'Cart is empty'
       });
     }
+
+    // DEBUG: Log cart data to see what's there
+    console.log('🛒 CART DATA:', JSON.stringify(cart, null, 2));
 
     // Get user details from req.user
     const userDetails = {
@@ -820,18 +932,23 @@ const submitInquiry = async (req, res) => {
       zipCode: req.user.zipCode || ''
     };
 
-    // Directly use cart items - they already have the correct structure!
-    // No need to flatten or transform - just copy the structure
+    // IMPORTANT: Preserve ALL fields from cart, especially unitPrice and totalQuantity
     const inquiryItems = cart.items.map(cartItem => {
-      // Create a deep copy of the cart item with the exact same structure
+      console.log(`📦 Processing product: ${cartItem.productName}`);
+      console.log(`   Cart item colors:`, JSON.stringify(cartItem.colors, null, 2));
+      
       return {
         productId: cartItem.productId,
         productName: cartItem.productName,
         colors: cartItem.colors.map(color => ({
-          color: color.color,
-          sizeQuantities: color.sizeQuantities.filter(sq => sq.quantity > 0), // Only keep non-zero quantities
-          totalForColor: color.totalForColor,
-          specialInstructions: color.specialInstructions || ''
+          color: {
+            code: color.color?.code || '#CCCCCC',
+            name: color.color?.name || color.color?.code || 'Unknown Color'
+          },
+          sizeQuantities: color.sizeQuantities.filter(sq => sq.quantity > 0),
+          totalForColor: color.totalForColor || 0,
+          totalQuantity: color.totalQuantity || color.totalForColor || 0,  // ADD THIS - copy totalQuantity
+          unitPrice: color.unitPrice || 0  // ADD THIS - copy unitPrice
         })),
         totalQuantity: cartItem.totalQuantity,
         unitPrice: cartItem.unitPrice,
@@ -841,14 +958,26 @@ const submitInquiry = async (req, res) => {
       };
     });
 
-    console.log(`📦 Creating inquiry with ${inquiryItems.length} products`);
-    console.log('📊 Products:', inquiryItems.map(item => ({
-      product: item.productName,
-      colors: item.colors.length,
-      totalQty: item.totalQuantity
-    })));
+    // Calculate totals using per-color pricing
+    const totalQuantity = inquiryItems.reduce((sum, item) => sum + item.totalQuantity, 0);
+    
+    // Calculate subtotal based on per-color pricing
+    const subtotal = inquiryItems.reduce((total, item) => {
+      const itemTotal = item.colors.reduce((sum, color) => {
+        const colorQty = color.totalQuantity || color.totalForColor || 0;
+        const colorPrice = color.unitPrice || 0;
+        const colorSubtotal = colorQty * colorPrice;
+        console.log(`   Color ${color.color.code}: ${colorQty} × ${colorPrice} = ${colorSubtotal}`);
+        return sum + colorSubtotal;
+      }, 0);
+      return total + itemTotal;
+    }, 0);
 
-    // Create inquiry with the exact same structure as cart
+    console.log(`📦 Creating inquiry with ${inquiryItems.length} products`);
+    console.log(`💰 Total quantity: ${totalQuantity}`);
+    console.log(`💰 Calculated subtotal using per-color pricing: ${subtotal}`);
+
+    // Create inquiry
     const inquiry = new Inquiry({
       userId: req.user.id,
       userDetails,
@@ -856,29 +985,20 @@ const submitInquiry = async (req, res) => {
       specialInstructions: specialInstructions || '',
       attachments: attachments || [],
       totalItems: inquiryItems.length,
-      totalQuantity: cart.totalQuantity,
-      subtotal: cart.estimatedTotal,
+      totalQuantity: totalQuantity,
+      subtotal: subtotal,
       status: 'submitted'
     });
 
     await inquiry.save();
 
     console.log('✅ Inquiry created successfully:', inquiry.inquiryNumber);
-    console.log('📦 Saved inquiry structure:', JSON.stringify({
-      inquiryNumber: inquiry.inquiryNumber,
-      items: inquiry.items.map(item => ({
-        product: item.productName,
-        colorsCount: item.colors.length,
-        colors: item.colors.map(c => ({
-          color: c.color.code,
-          totalForColor: c.totalForColor,
-          sizeCount: c.sizeQuantities.length
-        }))
-      }))
-    }, null, 2));
 
     // Clear the cart after successful submission
     cart.items = [];
+    cart.totalItems = 0;
+    cart.totalQuantity = 0;
+    cart.estimatedTotal = 0;
     await cart.save();
 
     res.status(201).json({
@@ -2157,6 +2277,107 @@ const getModeratorInquiries = async (req, res) => {
   }
 };
 
+
+// @desc    Update inquiry with quotation (Admin)
+// @route   PUT /api/admin/inquiries/:id/quotation
+// @access  Private/Admin
+const updateInquiryWithQuotation = async (req, res) => {
+  try {
+    const { items, specialInstructions,adminNote, status } = req.body;
+    const inquiryId = req.params.id;
+    
+    const inquiry = await Inquiry.findById(inquiryId);
+    if (!inquiry) {
+      return res.status(404).json({
+        success: false,
+        error: 'Inquiry not found'
+      });
+    }
+    
+    // Update items with admin edits
+    inquiry.items = items;
+    inquiry.specialInstructions = specialInstructions || inquiry.specialInstructions;
+     inquiry.adminNote = adminNote || inquiry.adminNote; 
+    inquiry.status = status || 'quoted';
+    
+    // Recalculate totals based on edited items - RESPECTING ALL AVAILABILITY LEVELS
+    let totalQuantity = 0;
+    let subtotal = 0;
+    
+    inquiry.items.forEach(item => {
+      // Skip if product is unavailable
+      if (item.isAvailable === false) return;
+      
+      let itemTotalQuantity = 0;
+      let itemSubtotal = 0;
+      
+      item.colors.forEach(color => {
+        // Skip if color is unavailable
+        if (color.isAvailable === false) return;
+        
+        let colorTotalQuantity = 0;
+        
+        color.sizeQuantities.forEach(sq => {
+          // Only include if size is available
+          if (sq.isAvailable !== false) {
+            colorTotalQuantity += sq.quantity || 0;
+          }
+        });
+        
+        const colorSubtotal = colorTotalQuantity * (color.unitPrice || 0);
+        itemTotalQuantity += colorTotalQuantity;
+        itemSubtotal += colorSubtotal;
+        
+        // Update the color's totalForColor based on available sizes
+        color.totalForColor = colorTotalQuantity;
+        color.totalQuantity = colorTotalQuantity;
+      });
+      
+      // Update the item totals
+      item.totalQuantity = itemTotalQuantity;
+      
+      totalQuantity += itemTotalQuantity;
+      subtotal += itemSubtotal;
+    });
+    
+    inquiry.totalQuantity = totalQuantity;
+    inquiry.subtotal = subtotal;
+    
+    // Add internal note about quotation
+    if (!inquiry.internalNotes) inquiry.internalNotes = [];
+    inquiry.internalNotes.push({
+      note: `Quotation prepared and sent to customer. Total amount: $${subtotal.toFixed(2)}`,
+      addedBy: req.user.id,
+      addedAt: new Date()
+    });
+    
+    await inquiry.save();
+    
+    // Send email notification to customer
+    try {
+      const { sendStatusUpdateEmail } = require('../utils/emailService');
+      await sendStatusUpdateEmail(inquiry, 'submitted', 'quoted');
+      console.log(`📧 Quotation email sent for inquiry: ${inquiry.inquiryNumber}`);
+    } catch (emailError) {
+      console.error('❌ Failed to send quotation email:', emailError.message);
+    }
+    
+    res.json({
+      success: true,
+      data: inquiry,
+      message: 'Quotation submitted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Update inquiry with quotation error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Error submitting quotation'
+    });
+  }
+};
+
+
+
 module.exports = {
   // Customer endpoints
   submitInquiry,
@@ -2173,6 +2394,7 @@ module.exports = {
   getDashboardStats,
    deleteInquiry ,
    getAllInquiriesForStats,
+   updateInquiryWithQuotation,
 
    // Moderator endpoint
   getModeratorInquiries 

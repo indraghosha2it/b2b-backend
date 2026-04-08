@@ -325,6 +325,298 @@ const getCategoryWithProducts = async (req, res) => {
 // @desc    Get all products in a category
 
 
+
+// controllers/categoryController.js
+
+// Add these new controller functions
+// ============ SIMPLIFIED SUBCATEGORY CONTROLLERS (NAME ONLY) ============
+
+// @desc    Add subcategory to a category (Name only - no image/description)
+// @route   POST /api/categories/:categoryId/subcategories
+// @access  Private (Moderator/Admin)
+const addSubcategory = async (req, res) => {
+  try {
+    const { name } = req.body;
+    const categoryId = req.params.categoryId;
+
+    // Validate input
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Subcategory name is required'
+      });
+    }
+
+    // Find the category
+    const category = await Category.findById(categoryId);
+    
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    // Check if subcategory with same name already exists
+    const existingSubcategory = category.subcategories.find(
+      sub => sub.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if (existingSubcategory) {
+      return res.status(400).json({
+        success: false,
+        error: 'Subcategory with this name already exists in this category'
+      });
+    }
+
+    // Create new subcategory object (Name only - no image/description)
+    const newSubcategory = {
+      name: name.trim(),
+      isActive: true,
+      productCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Add to category
+    category.subcategories.push(newSubcategory);
+    await category.save();
+
+    // Get the newly added subcategory (last one)
+    const addedSubcategory = category.subcategories[category.subcategories.length - 1];
+
+    res.status(201).json({
+      success: true,
+      data: addedSubcategory,
+      message: 'Subcategory added successfully'
+    });
+  } catch (error) {
+    console.error('Add subcategory error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while adding subcategory'
+    });
+  }
+};
+
+// @desc    Get all subcategories of a category
+// @route   GET /api/categories/:categoryId/subcategories
+// @access  Public
+const getSubcategories = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.categoryId)
+      .select('name subcategories');
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    // Filter only active subcategories
+    const activeSubcategories = category.subcategories.filter(sub => sub.isActive === true);
+
+    // Return simplified subcategory data (only needed fields)
+    const simplifiedSubcategories = activeSubcategories.map(sub => ({
+      _id: sub._id,
+      name: sub.name,
+      slug: sub.slug,
+      isActive: sub.isActive,
+      productCount: sub.productCount,
+      createdAt: sub.createdAt,
+      updatedAt: sub.updatedAt
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        categoryId: category._id,
+        categoryName: category.name,
+        subcategories: simplifiedSubcategories,
+        total: simplifiedSubcategories.length
+      }
+    });
+  } catch (error) {
+    console.error('Get subcategories error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while fetching subcategories'
+    });
+  }
+};
+
+// @desc    Get single subcategory
+// @route   GET /api/categories/:categoryId/subcategories/:subcategoryId
+// @access  Public
+const getSubcategoryById = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.categoryId);
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    const subcategory = category.subcategories.id(req.params.subcategoryId);
+
+    if (!subcategory) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subcategory not found'
+      });
+    }
+
+    // Return simplified subcategory data
+    res.json({
+      success: true,
+      data: {
+        categoryId: category._id,
+        categoryName: category.name,
+        _id: subcategory._id,
+        name: subcategory.name,
+        slug: subcategory.slug,
+        isActive: subcategory.isActive,
+        productCount: subcategory.productCount,
+        createdAt: subcategory.createdAt,
+        updatedAt: subcategory.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error('Get subcategory error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while fetching subcategory'
+    });
+  }
+};
+
+// @desc    Update subcategory (Name only - no image/description)
+// @route   PUT /api/categories/:categoryId/subcategories/:subcategoryId
+// @access  Private (Moderator/Admin)
+const updateSubcategory = async (req, res) => {
+  try {
+    const { name, isActive } = req.body;
+    const category = await Category.findById(req.params.categoryId);
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    const subcategory = category.subcategories.id(req.params.subcategoryId);
+
+    if (!subcategory) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subcategory not found'
+      });
+    }
+
+    // Check if new name conflicts with existing subcategory
+    if (name && name !== subcategory.name) {
+      const nameExists = category.subcategories.some(
+        sub => sub.name.toLowerCase() === name.toLowerCase() && 
+               sub._id.toString() !== req.params.subcategoryId
+      );
+      
+      if (nameExists) {
+        return res.status(400).json({
+          success: false,
+          error: 'Subcategory with this name already exists'
+        });
+      }
+      subcategory.name = name.trim();
+    }
+
+    // Update isActive status if provided
+    if (isActive !== undefined) {
+      subcategory.isActive = isActive;
+    }
+    
+    subcategory.updatedAt = new Date();
+
+    await category.save();
+
+    // Return updated subcategory data
+    res.json({
+      success: true,
+      data: {
+        _id: subcategory._id,
+        name: subcategory.name,
+        slug: subcategory.slug,
+        isActive: subcategory.isActive,
+        productCount: subcategory.productCount,
+        updatedAt: subcategory.updatedAt
+      },
+      message: 'Subcategory updated successfully'
+    });
+  } catch (error) {
+    console.error('Update subcategory error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while updating subcategory'
+    });
+  }
+};
+
+// @desc    Delete subcategory
+// @route   DELETE /api/categories/:categoryId/subcategories/:subcategoryId
+// @access  Private (Moderator/Admin)
+const deleteSubcategory = async (req, res) => {
+  try {
+    const category = await Category.findById(req.params.categoryId);
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    const subcategory = category.subcategories.id(req.params.subcategoryId);
+
+    if (!subcategory) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subcategory not found'
+      });
+    }
+
+    // Check if subcategory has products
+    if (subcategory.productCount > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot delete subcategory - It has ${subcategory.productCount} product(s)`
+      });
+    }
+
+    // Remove subcategory
+    category.subcategories.pull({ _id: req.params.subcategoryId });
+    await category.save();
+
+    res.json({
+      success: true,
+      message: 'Subcategory deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete subcategory error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while deleting subcategory'
+    });
+  }
+};
+
+
+
+// Update module.exports
+
+
 // Update module.exports
 
 
@@ -335,5 +627,12 @@ module.exports = {
  getCategoryWithProducts,
   updateCategory,
   deleteCategory,
-  getCategoryDetails
+  getCategoryDetails,
+
+  addSubcategory,
+  getSubcategories,
+  getSubcategoryById,
+  updateSubcategory,
+  deleteSubcategory
+
 };

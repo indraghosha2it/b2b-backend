@@ -8,231 +8,25 @@ const { cloudinary } = require('../config/cloudinary');
 
 
 
-// @desc    Create new product
+
+
+
+// @desc    Create new product - MODIFIED to accept JSON with image URLs
 // @route   POST /api/products
 // @access  Private (Moderator/Admin)
+// controllers/productController.js
+
 // const createProduct = async (req, res) => {
 //   try {
 //     console.log('Create product request received');
 //     console.log('Body:', req.body);
-//     console.log('Files:', req.files);
 
 //     const {
 //       productName,
 //       description,
+//       instruction,
 //       category,
-//       targetedCustomer,
-//       fabric,
-//       moq,
-//       pricePerUnit,
-//       quantityBasedPricing,
-//       sizes,
-//       colors,
-//       additionalInfo // New field
-//     } = req.body;
-
-//     console.log('Targeted customer received:', targetedCustomer);
-//     console.log('Additional info received:', additionalInfo);
-
-//     // Validation
-//     if (!productName) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Product name is required'
-//       });
-//     }
-
-//     if (!category) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Category is required'
-//       });
-//     }
-
-//     // Check if category exists
-//     const categoryExists = await Category.findById(category);
-//     if (!categoryExists) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Invalid category'
-//       });
-//     }
-
-//     // Check if at least one image is uploaded
-//     if (!req.files || req.files.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'At least one product image is required'
-//       });
-//     }
-
-//     // Parse JSON fields
-//     let parsedQuantityPricing = [];
-//     let parsedSizes = [];
-//     let parsedColors = [];
-//     let parsedAdditionalInfo = []; // New parsed field
-
-//     try {
-//       parsedQuantityPricing = typeof quantityBasedPricing === 'string' 
-//         ? JSON.parse(quantityBasedPricing) 
-//         : quantityBasedPricing;
-      
-//       parsedSizes = typeof sizes === 'string' 
-//         ? JSON.parse(sizes) 
-//         : sizes;
-      
-//       parsedColors = typeof colors === 'string' 
-//         ? JSON.parse(colors) 
-//         : colors;
-      
-//       // Parse additional info if provided
-//       if (additionalInfo) {
-//         parsedAdditionalInfo = typeof additionalInfo === 'string' 
-//           ? JSON.parse(additionalInfo) 
-//           : additionalInfo;
-//       }
-//     } catch (error) {
-//       console.error('Error parsing JSON fields:', error);
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Invalid data format for sizes, colors, pricing, or additional info'
-//       });
-//     }
-
-//     // Validate sizes
-//     if (!parsedSizes || parsedSizes.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'At least one size is required'
-//       });
-//     }
-
-//     // Validate colors
-//     if (!parsedColors || parsedColors.length === 0) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'At least one color is required'
-//       });
-//     }
-
-//     // Validate additional info (optional, but validate if provided)
-//     if (parsedAdditionalInfo && parsedAdditionalInfo.length > 0) {
-//       for (const info of parsedAdditionalInfo) {
-//         if (!info.fieldName || !info.fieldName.trim()) {
-//           return res.status(400).json({
-//             success: false,
-//             error: 'Field name is required for additional information'
-//           });
-//         }
-//         if (!info.fieldValue || !info.fieldValue.trim()) {
-//           return res.status(400).json({
-//             success: false,
-//             error: 'Field value is required for additional information'
-//           });
-//         }
-//       }
-//     }
-
-//     // Process images from Cloudinary
-//     const images = req.files.map((file, index) => ({
-//       url: file.path,
-//       publicId: file.filename,
-//       isPrimary: index === 0 // First image is primary
-//     }));
-
-//     // Create product in Product collection with additionalInfo
-//     const product = await Product.create({
-//       productName,
-//       description: description || '',
-//       category,
-//       targetedCustomer: targetedCustomer || 'unisex',
-//       fabric,
-//       moq: parseInt(moq),
-//       pricePerUnit: parseFloat(pricePerUnit),
-//       quantityBasedPricing: parsedQuantityPricing,
-//       sizes: parsedSizes,
-//       colors: parsedColors,
-//       additionalInfo: parsedAdditionalInfo, // New field
-//       images,
-//       createdBy: req.user.id,
-//       isActive: true // Set active by default
-//     });
-
-//     // Prepare embedded product data for category
-//     const embeddedProduct = {
-//       productId: product._id,
-//       productName: product.productName,
-//       slug: product.slug,
-//       description: product.description,
-//       targetedCustomer: product.targetedCustomer,
-//       fabric: product.fabric,
-//       images: product.images,
-//       sizes: product.sizes,
-//       colors: product.colors,
-//       moq: product.moq,
-//       pricePerUnit: product.pricePerUnit,
-//       quantityBasedPricing: product.quantityBasedPricing,
-//       additionalInfo: product.additionalInfo, // Include in embedded product
-//       isActive: product.isActive,
-//       createdBy: product.createdBy,
-//       createdAt: product.createdAt
-//     };
-
-//     // Add product to category's products array
-//     await Category.findByIdAndUpdate(
-//       category,
-//       {
-//         $push: { products: embeddedProduct },
-//         $inc: { productCount: 1 }
-//       },
-//       { new: true }
-//     );
-
-//     // Populate references for response
-//     await product.populate([
-//       { path: 'category', select: 'name slug' },
-//       { path: 'createdBy', select: 'contactPerson email role' }
-//     ]);
-
-//     res.status(201).json({
-//       success: true,
-//       data: product,
-//       message: 'Product created successfully'
-//     });
-//   } catch (error) {
-//     console.error('Create product error:', error);
-    
-//     // If there are uploaded files, delete them from Cloudinary
-//     if (req.files && req.files.length > 0) {
-//       try {
-//         for (const file of req.files) {
-//           await cloudinary.uploader.destroy(file.filename);
-//         }
-//       } catch (cloudinaryError) {
-//         console.error('Error deleting from Cloudinary:', cloudinaryError);
-//       }
-//     }
-    
-//     res.status(500).json({
-//       success: false,
-//       error: error.message || 'Server error while creating product'
-//     });
-//   }
-// };
-// @desc    Create new product - UPDATE THIS
-// @route   POST /api/products
-// @access  Private (Moderator/Admin)
-// const createProduct = async (req, res) => {
-//   try {
-//     console.log('Create product request received');
-//     console.log('Body:', req.body);
-//     console.log('Files:', req.files);
-
-//     const {
-//       productName,
-//       description,
-//        instruction,
-//       category,
+//        subcategory,
 //       targetedCustomer,
 //       fabric,
 //       moq,
@@ -241,12 +35,14 @@ const { cloudinary } = require('../config/cloudinary');
 //       sizes,
 //       colors,
 //       additionalInfo,
-//       // NEW FIELDS
 //       isFeatured,
 //       tags,
-//       metaSettings
+//       metaSettings,
+//       images // This is now an array of image URLs from Cloudinary
 //     } = req.body;
-// console.log('Instruction received:', instruction); 
+
+//     console.log('Images received:', images);
+//     console.log('Images array length:', images?.length);
 
 //     // Validation
 //     if (!productName) {
@@ -272,15 +68,24 @@ const { cloudinary } = require('../config/cloudinary');
 //       });
 //     }
 
-//     // Check if at least one image is uploaded
-//     if (!req.files || req.files.length === 0) {
+//     // CRITICAL: Check if at least one image URL is provided
+//     if (!images || !Array.isArray(images) || images.length === 0) {
+//       console.log('No images provided. Images:', images);
 //       return res.status(400).json({
 //         success: false,
 //         error: 'At least one product image is required'
 //       });
 //     }
 
-//     // Parse JSON fields
+//     // Validate image URLs
+//     if (!Array.isArray(images) || images.some(img => typeof img !== 'string')) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Images must be an array of valid URLs'
+//       });
+//     }
+
+//     // Parse JSON fields (if they come as strings)
 //     let parsedQuantityPricing = [];
 //     let parsedSizes = [];
 //     let parsedColors = [];
@@ -291,15 +96,15 @@ const { cloudinary } = require('../config/cloudinary');
 //     try {
 //       parsedQuantityPricing = typeof quantityBasedPricing === 'string' 
 //         ? JSON.parse(quantityBasedPricing) 
-//         : quantityBasedPricing;
+//         : quantityBasedPricing || [];
       
 //       parsedSizes = typeof sizes === 'string' 
 //         ? JSON.parse(sizes) 
-//         : sizes;
+//         : sizes || [];
       
 //       parsedColors = typeof colors === 'string' 
 //         ? JSON.parse(colors) 
-//         : colors;
+//         : colors || [];
       
 //       if (additionalInfo) {
 //         parsedAdditionalInfo = typeof additionalInfo === 'string' 
@@ -307,17 +112,16 @@ const { cloudinary } = require('../config/cloudinary');
 //           : additionalInfo;
 //       }
 
-//       // Parse new fields
 //       if (tags) {
 //         parsedTags = typeof tags === 'string' 
 //           ? JSON.parse(tags) 
-//           : tags;
+//           : tags || [];
 //       }
 
 //       if (metaSettings) {
 //         parsedMetaSettings = typeof metaSettings === 'string' 
 //           ? JSON.parse(metaSettings) 
-//           : metaSettings;
+//           : metaSettings || {};
 //       }
 //     } catch (error) {
 //       console.error('Error parsing JSON fields:', error);
@@ -343,68 +147,46 @@ const { cloudinary } = require('../config/cloudinary');
 //       });
 //     }
 
-//     // Validate tags if provided
-//     if (parsedTags && parsedTags.length > 0) {
-//       const validTags = [
-//         'Top Ranking', 'New Arrival', 'Top Deal', 'Best Seller',
-//         'Summer Collection', 'Winter Collection', 'Limited Edition', 'Trending'
-//       ];
-      
-//       for (const tag of parsedTags) {
-//         if (!validTags.includes(tag)) {
-//           return res.status(400).json({
-//             success: false,
-//             error: `Invalid tag: ${tag}`
-//           });
-//         }
-//       }
-//     }
-
-//     // Validate meta title length
-//     if (parsedMetaSettings.metaTitle && parsedMetaSettings.metaTitle.length > 70) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Meta title should not exceed 70 characters'
-//       });
-//     }
-
-//     // Validate meta description length
-//     if (parsedMetaSettings.metaDescription && parsedMetaSettings.metaDescription.length > 160) {
-//       return res.status(400).json({
-//         success: false,
-//         error: 'Meta description should not exceed 160 characters'
-//       });
-//     }
-
-//     // Process images from Cloudinary
-//     const images = req.files.map((file, index) => ({
-//       url: file.path,
-//       publicId: file.filename,
+//     // Process images - Convert URLs to the format expected by the schema
+//     const processedImages = images.map((url, index) => ({
+//       url: url,
+//       publicId: extractPublicIdFromUrl(url),
 //       isPrimary: index === 0
 //     }));
+
+//     console.log('Processed images:', processedImages);
 
 //     // Create product with all fields
 //     const product = await Product.create({
 //       productName,
 //       description: description || '',
-//         instruction: instruction || '',
+//       instruction: instruction || '',
 //       category,
+//        subcategory: subcategory || null,
+//        subcategoryName: subcategory ? await getSubcategoryName(category, subcategory) : '', 
 //       targetedCustomer: targetedCustomer || 'unisex',
 //       fabric,
-//       moq: parseInt(moq),
-//       pricePerUnit: parseFloat(pricePerUnit),
+//       moq: parseInt(moq) || 100,
+//       pricePerUnit: parseFloat(pricePerUnit) || 0,
 //       quantityBasedPricing: parsedQuantityPricing,
 //       sizes: parsedSizes,
 //       colors: parsedColors,
 //       additionalInfo: parsedAdditionalInfo,
-//       // New fields
-//       isFeatured: isFeatured === 'true' || isFeatured === true,
+//       isFeatured: isFeatured === true || isFeatured === 'true',
 //       tags: parsedTags,
 //       metaSettings: parsedMetaSettings,
-//       images,
+//       images: processedImages,
 //       createdBy: req.user.id,
 //       isActive: true
 //     });
+
+//     // Helper function to get subcategory name
+// async function getSubcategoryName(categoryId, subcategoryId) {
+//   const category = await Category.findById(categoryId);
+//   if (!category) return '';
+//   const subcategory = category.subcategories.id(subcategoryId);
+//   return subcategory ? subcategory.name : '';
+// }
 
 //     // Prepare embedded product data for category
 //     const embeddedProduct = {
@@ -422,8 +204,10 @@ const { cloudinary } = require('../config/cloudinary');
 //       pricePerUnit: product.pricePerUnit,
 //       quantityBasedPricing: product.quantityBasedPricing,
 //       additionalInfo: product.additionalInfo,
-//       isFeatured: product.isFeatured, // NEW
-//       tags: product.tags, // NEW
+//       isFeatured: product.isFeatured,
+//       tags: product.tags,
+//        subcategoryId: product.subcategory, // NEW
+//   subcategoryName: product.subcategoryName, // NEW
 //       isActive: product.isActive,
 //       createdBy: product.createdBy,
 //       createdAt: product.createdAt
@@ -452,18 +236,6 @@ const { cloudinary } = require('../config/cloudinary');
 //     });
 //   } catch (error) {
 //     console.error('Create product error:', error);
-    
-//     // If there are uploaded files, delete them from Cloudinary
-//     if (req.files && req.files.length > 0) {
-//       try {
-//         for (const file of req.files) {
-//           await cloudinary.uploader.destroy(file.filename);
-//         }
-//       } catch (cloudinaryError) {
-//         console.error('Error deleting from Cloudinary:', cloudinaryError);
-//       }
-//     }
-    
 //     res.status(500).json({
 //       success: false,
 //       error: error.message || 'Server error while creating product'
@@ -471,13 +243,9 @@ const { cloudinary } = require('../config/cloudinary');
 //   }
 // };
 
-
-
-// @desc    Create new product - MODIFIED to accept JSON with image URLs
+// @desc    Create new product - WITH SUBCATEGORY SUPPORT
 // @route   POST /api/products
 // @access  Private (Moderator/Admin)
-// controllers/productController.js
-
 const createProduct = async (req, res) => {
   try {
     console.log('Create product request received');
@@ -488,6 +256,7 @@ const createProduct = async (req, res) => {
       description,
       instruction,
       category,
+      subcategory, // NEW: Subcategory ID (optional)
       targetedCustomer,
       fabric,
       moq,
@@ -499,9 +268,11 @@ const createProduct = async (req, res) => {
       isFeatured,
       tags,
       metaSettings,
-      images // This is now an array of image URLs from Cloudinary
+      images
     } = req.body;
 
+    console.log('Category:', category);
+    console.log('Subcategory:', subcategory);
     console.log('Images received:', images);
     console.log('Images array length:', images?.length);
 
@@ -527,6 +298,25 @@ const createProduct = async (req, res) => {
         success: false,
         error: 'Invalid category'
       });
+    }
+
+    // If subcategory is provided, validate it exists in the category
+    let subcategoryName = '';
+    let subcategoryDoc = null;
+    
+    if (subcategory && subcategory !== '') {
+      // Find the subcategory in the category's subcategories array
+      subcategoryDoc = categoryExists.subcategories.id(subcategory);
+      
+      if (!subcategoryDoc) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid subcategory for this category'
+        });
+      }
+      
+      subcategoryName = subcategoryDoc.name;
+      console.log('Valid subcategory found:', subcategoryName);
     }
 
     // CRITICAL: Check if at least one image URL is provided
@@ -608,6 +398,39 @@ const createProduct = async (req, res) => {
       });
     }
 
+    // Validate tags if provided
+    if (parsedTags && parsedTags.length > 0) {
+      const validTags = [
+        'Top Ranking', 'New Arrival', 'Top Deal', 'Best Seller',
+        'Summer Collection', 'Winter Collection', 'Limited Edition', 'Trending'
+      ];
+      
+      for (const tag of parsedTags) {
+        if (!validTags.includes(tag)) {
+          return res.status(400).json({
+            success: false,
+            error: `Invalid tag: ${tag}`
+          });
+        }
+      }
+    }
+
+    // Validate meta title length
+    if (parsedMetaSettings.metaTitle && parsedMetaSettings.metaTitle.length > 70) {
+      return res.status(400).json({
+        success: false,
+        error: 'Meta title should not exceed 70 characters'
+      });
+    }
+
+    // Validate meta description length
+    if (parsedMetaSettings.metaDescription && parsedMetaSettings.metaDescription.length > 160) {
+      return res.status(400).json({
+        success: false,
+        error: 'Meta description should not exceed 160 characters'
+      });
+    }
+
     // Process images - Convert URLs to the format expected by the schema
     const processedImages = images.map((url, index) => ({
       url: url,
@@ -623,6 +446,8 @@ const createProduct = async (req, res) => {
       description: description || '',
       instruction: instruction || '',
       category,
+      subcategory: subcategory || null, // Store subcategory ID
+      subcategoryName: subcategoryName, // Store subcategory name for denormalization
       targetedCustomer: targetedCustomer || 'unisex',
       fabric,
       moq: parseInt(moq) || 100,
@@ -657,6 +482,8 @@ const createProduct = async (req, res) => {
       additionalInfo: product.additionalInfo,
       isFeatured: product.isFeatured,
       tags: product.tags,
+      subcategoryId: product.subcategory, // Store subcategory ID in embedded product
+      subcategoryName: product.subcategoryName, // Store subcategory name in embedded product
       isActive: product.isActive,
       createdBy: product.createdBy,
       createdAt: product.createdAt
@@ -671,6 +498,20 @@ const createProduct = async (req, res) => {
       },
       { new: true }
     );
+
+    // If subcategory is selected, also increment the subcategory's product count
+    if (subcategory && subcategoryDoc) {
+      await Category.findOneAndUpdate(
+        { 
+          _id: category,
+          'subcategories._id': subcategory
+        },
+        {
+          $inc: { 'subcategories.$.productCount': 1 }
+        }
+      );
+      console.log(`Incremented product count for subcategory: ${subcategoryName}`);
+    }
 
     // Populate references for response
     await product.populate([
@@ -715,6 +556,29 @@ const extractPublicIdFromUrl = (url) => {
   return null;
 };
 
+// Helper function to extract public ID from Cloudinary URL
+// const extractPublicIdFromUrl = (url) => {
+//   if (!url) return null;
+  
+//   try {
+//     // Extract public_id from Cloudinary URL
+//     // Example URL: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/b2b-products/abc123.jpg
+//     const parts = url.split('/');
+//     const uploadIndex = parts.findIndex(part => part === 'upload');
+//     if (uploadIndex !== -1 && uploadIndex + 2 < parts.length) {
+//       // Skip the version part (v1234567890)
+//       const publicIdWithExt = parts.slice(uploadIndex + 2).join('/');
+//       // Remove file extension
+//       const publicId = publicIdWithExt.substring(0, publicIdWithExt.lastIndexOf('.'));
+//       return publicId;
+//     }
+//   } catch (error) {
+//     console.error('Error extracting public ID from URL:', error);
+//   }
+  
+//   return null;
+// };
+
 
 
 
@@ -737,6 +601,7 @@ const getProducts = async (req, res) => {
       page = 1, 
       limit = 12, 
       category, 
+      subcategory,
       search, 
       minPrice, 
       maxPrice,
@@ -780,6 +645,13 @@ const getProducts = async (req, res) => {
         query.category = { $in: category };
       } else {
         query.category = category;
+      }
+    }
+     if (subcategory) {
+      if (Array.isArray(subcategory)) {
+        query.subcategory = { $in: subcategory };
+      } else {
+        query.subcategory = subcategory;
       }
     }
 
@@ -838,6 +710,7 @@ const getProducts = async (req, res) => {
       sortOption = { createdAt: -1 };
     }
 
+    console.log('Subcategory filter:', subcategory);
     console.log('Search query:', search); // Debug log
     console.log('MongoDB query:', JSON.stringify(query)); // Debug log
 
@@ -979,7 +852,9 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 
 
 
-// before cloudinary fix 
+// @desc    Update product - MODIFIED to accept JSON with image URLs
+// @route   PUT /api/products/:id
+// @access  Private (Moderator/Admin) fix one before subcategory
 // const updateProduct = async (req, res) => {
 //   try {
 //     const product = await Product.findById(req.params.id);
@@ -1002,7 +877,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //     const {
 //       productName,
 //       description,
-//       instruction, // NEW: Add instruction field
+//       instruction,
 //       category,
 //       targetedCustomer,
 //       fabric,
@@ -1014,9 +889,24 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       additionalInfo,
 //       isFeatured,
 //       tags,
-//       metaSettings
+//       metaSettings,
+//       images,
+//       imagesToDelete // Array of image URLs
 //     } = req.body;
 
+
+//     // Delete old images from Cloudinary if provided
+//     if (imagesToDelete && Array.isArray(imagesToDelete) && imagesToDelete.length > 0) {
+//       for (const publicId of imagesToDelete) {
+//         try {
+//           await cloudinary.uploader.destroy(publicId);
+//           console.log('Deleted image from Cloudinary:', publicId);
+//         } catch (cloudinaryError) {
+//           console.error('Error deleting image from Cloudinary:', cloudinaryError);
+//         }
+//       }
+//     }
+    
 //     const oldCategory = product.category.toString();
 //     const newCategory = category || oldCategory;
 
@@ -1034,7 +924,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //     // Update basic fields
 //     if (productName) product.productName = productName;
 //     if (description !== undefined) product.description = description;
-//     if (instruction !== undefined) product.instruction = instruction; // NEW: Update instruction
+//     if (instruction !== undefined) product.instruction = instruction;
 //     if (category) product.category = category;
 //     if (targetedCustomer) product.targetedCustomer = targetedCustomer;
 //     if (fabric) product.fabric = fabric;
@@ -1143,7 +1033,6 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //           ? JSON.parse(tags) 
 //           : tags;
         
-//         // Validate tags
 //         if (parsed && parsed.length > 0) {
 //           const validTags = [
 //             'Top Ranking', 'New Arrival', 'Top Deal', 'Best Seller',
@@ -1176,7 +1065,6 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //           ? JSON.parse(metaSettings) 
 //           : metaSettings;
         
-//         // Validate meta title length
 //         if (parsed.metaTitle && parsed.metaTitle.length > 70) {
 //           return res.status(400).json({
 //             success: false,
@@ -1184,7 +1072,6 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //           });
 //         }
 
-//         // Validate meta description length
 //         if (parsed.metaDescription && parsed.metaDescription.length > 160) {
 //           return res.status(400).json({
 //             success: false,
@@ -1192,7 +1079,6 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //           });
 //         }
 
-//         // Update only provided fields
 //         product.metaSettings = {
 //           ...product.metaSettings,
 //           ...parsed
@@ -1205,23 +1091,27 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       }
 //     }
 
-//     // Handle new images
-//     if (req.files && req.files.length > 0) {
+//     // Update images if provided
+//     if (images && Array.isArray(images) && images.length > 0) {
 //       // Delete old images from Cloudinary
 //       for (const image of product.images) {
 //         if (image.publicId) {
-//           await cloudinary.uploader.destroy(image.publicId);
+//           try {
+//             await cloudinary.uploader.destroy(image.publicId);
+//           } catch (cloudinaryError) {
+//             console.error('Error deleting image from Cloudinary:', cloudinaryError);
+//           }
 //         }
 //       }
 
-//       // Add new images
-//       const newImages = req.files.map((file, index) => ({
-//         url: file.path,
-//         publicId: file.filename,
+//       // Process new images
+//       const processedImages = images.map((url, index) => ({
+//         url: url,
+//         publicId: extractPublicIdFromUrl(url),
 //         isPrimary: index === 0
 //       }));
       
-//       product.images = newImages;
+//       product.images = processedImages;
 //     }
 
 //     await product.save();
@@ -1230,7 +1120,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //     const updateData = {
 //       productName: product.productName,
 //       description: product.description,
-//       instruction: product.instruction, // NEW: Include instruction in update
+//       instruction: product.instruction,
 //       targetedCustomer: product.targetedCustomer,
 //       fabric: product.fabric,
 //       sizes: product.sizes,
@@ -1280,17 +1170,6 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //     });
 //   } catch (error) {
 //     console.error('Update product error:', error);
-    
-//     if (req.files && req.files.length > 0) {
-//       try {
-//         for (const file of req.files) {
-//           await cloudinary.uploader.destroy(file.filename);
-//         }
-//       } catch (cloudinaryError) {
-//         console.error('Error deleting from Cloudinary:', cloudinaryError);
-//       }
-//     }
-    
 //     res.status(500).json({
 //       success: false,
 //       error: error.message || 'Server error while updating product'
@@ -1299,9 +1178,9 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 // };
 
 
-// @desc    Update product - MODIFIED to accept JSON with image URLs
+// @desc    Update product - WITH SUBCATEGORY SUPPORT
 // @route   PUT /api/products/:id
-// @access  Private (Moderator/Admin) fix one
+// @access  Private (Moderator/Admin)
 const updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
@@ -1326,6 +1205,7 @@ const updateProduct = async (req, res) => {
       description,
       instruction,
       category,
+      subcategory, // NEW: Subcategory ID (optional)
       targetedCustomer,
       fabric,
       moq,
@@ -1338,24 +1218,15 @@ const updateProduct = async (req, res) => {
       tags,
       metaSettings,
       images,
-      imagesToDelete // Array of image URLs
+      imagesToDelete
     } = req.body;
 
-
-    // Delete old images from Cloudinary if provided
-    if (imagesToDelete && Array.isArray(imagesToDelete) && imagesToDelete.length > 0) {
-      for (const publicId of imagesToDelete) {
-        try {
-          await cloudinary.uploader.destroy(publicId);
-          console.log('Deleted image from Cloudinary:', publicId);
-        } catch (cloudinaryError) {
-          console.error('Error deleting image from Cloudinary:', cloudinaryError);
-        }
-      }
-    }
-    
+    // Store old category and subcategory for updating counts
     const oldCategory = product.category.toString();
+    const oldSubcategoryId = product.subcategory ? product.subcategory.toString() : null;
     const newCategory = category || oldCategory;
+    let newSubcategoryId = subcategory || null;
+    let newSubcategoryName = '';
 
     // Check if category is being changed
     if (category && category !== oldCategory) {
@@ -1368,11 +1239,90 @@ const updateProduct = async (req, res) => {
       }
     }
 
+    // Handle subcategory validation and count updates
+    if (newSubcategoryId) {
+      // Find the category to validate subcategory
+      const categoryDoc = await Category.findById(newCategory);
+      if (!categoryDoc) {
+        return res.status(400).json({
+          success: false,
+          error: 'Category not found'
+        });
+      }
+      
+      // Validate subcategory exists in this category
+      const subcategoryDoc = categoryDoc.subcategories.id(newSubcategoryId);
+      if (!subcategoryDoc) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid subcategory for this category'
+        });
+      }
+      newSubcategoryName = subcategoryDoc.name;
+    }
+
+    // Handle subcategory count changes
+    // Case 1: Subcategory changed from one to another
+    if (oldSubcategoryId && newSubcategoryId && oldSubcategoryId !== newSubcategoryId) {
+      // Decrement old subcategory count
+      await Category.findOneAndUpdate(
+        { 
+          _id: oldCategory,
+          'subcategories._id': oldSubcategoryId
+        },
+        { $inc: { 'subcategories.$.productCount': -1 } }
+      );
+      // Increment new subcategory count
+      await Category.findOneAndUpdate(
+        { 
+          _id: newCategory,
+          'subcategories._id': newSubcategoryId
+        },
+        { $inc: { 'subcategories.$.productCount': 1 } }
+      );
+    }
+    // Case 2: Subcategory added (was null, now has value)
+    else if (!oldSubcategoryId && newSubcategoryId) {
+      await Category.findOneAndUpdate(
+        { 
+          _id: newCategory,
+          'subcategories._id': newSubcategoryId
+        },
+        { $inc: { 'subcategories.$.productCount': 1 } }
+      );
+    }
+    // Case 3: Subcategory removed (had value, now null)
+    else if (oldSubcategoryId && !newSubcategoryId) {
+      await Category.findOneAndUpdate(
+        { 
+          _id: oldCategory,
+          'subcategories._id': oldSubcategoryId
+        },
+        { $inc: { 'subcategories.$.productCount': -1 } }
+      );
+    }
+
+    // Delete old images from Cloudinary if provided
+    if (imagesToDelete && Array.isArray(imagesToDelete) && imagesToDelete.length > 0) {
+      for (const publicId of imagesToDelete) {
+        try {
+          await cloudinary.uploader.destroy(publicId);
+          console.log('Deleted image from Cloudinary:', publicId);
+        } catch (cloudinaryError) {
+          console.error('Error deleting image from Cloudinary:', cloudinaryError);
+        }
+      }
+    }
+
     // Update basic fields
     if (productName) product.productName = productName;
     if (description !== undefined) product.description = description;
     if (instruction !== undefined) product.instruction = instruction;
     if (category) product.category = category;
+    if (subcategory !== undefined) {
+      product.subcategory = newSubcategoryId;
+      product.subcategoryName = newSubcategoryName;
+    }
     if (targetedCustomer) product.targetedCustomer = targetedCustomer;
     if (fabric) product.fabric = fabric;
     if (moq) product.moq = parseInt(moq);
@@ -1580,6 +1530,8 @@ const updateProduct = async (req, res) => {
       isActive: product.isActive,
       isFeatured: product.isFeatured,
       tags: product.tags,
+      subcategoryId: product.subcategory,
+      subcategoryName: product.subcategoryName,
       updatedAt: new Date()
     };
 
@@ -1623,6 +1575,25 @@ const updateProduct = async (req, res) => {
     });
   }
 };
+
+// Helper function to extract public ID from Cloudinary URL
+// const extractPublicIdFromUrl = (url) => {
+//   if (!url) return null;
+  
+//   try {
+//     const parts = url.split('/');
+//     const uploadIndex = parts.findIndex(part => part === 'upload');
+//     if (uploadIndex !== -1 && uploadIndex + 2 < parts.length) {
+//       const publicIdWithExt = parts.slice(uploadIndex + 2).join('/');
+//       const publicId = publicIdWithExt.substring(0, publicIdWithExt.lastIndexOf('.'));
+//       return publicId;
+//     }
+//   } catch (error) {
+//     console.error('Error extracting public ID from URL:', error);
+//   }
+  
+//   return null;
+// };
 
 
 // @desc    Delete product

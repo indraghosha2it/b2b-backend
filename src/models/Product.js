@@ -308,6 +308,16 @@ const productSchema = new mongoose.Schema({
     required: [true, 'Category is required']
   },
 
+  subcategory: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Category.subcategories',
+  required: false  // Optional field
+},
+subcategoryName: {
+  type: String,
+  trim: true
+},
+
   // Fabric/Material
   fabric: {
     type: String,

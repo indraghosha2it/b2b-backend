@@ -8,13 +8,24 @@ const {
   getCategoryById,
   updateCategory,
   deleteCategory,
-  getCategoryDetails
+  getCategoryDetails,
+
+    addSubcategory,
+  getSubcategories,
+  getSubcategoryById,
+  updateSubcategory,
+  deleteSubcategory
 } = require('../controllers/categoryController');
 
 // Public routes (no authentication needed)
 router.get('/', getCategories);
 router.get('/:id', getCategoryById);
 router.get('/:id/details', getCategoryDetails);
+
+
+// Subcategory public routes
+router.get('/:categoryId/subcategories', getSubcategories);
+router.get('/:categoryId/subcategories/:subcategoryId', getSubcategoryById);
 
 // Protected routes - All routes below require authentication
 router.use(protect); // This applies to all routes below
@@ -38,6 +49,26 @@ router.delete('/:id',
   isModeratorOrAdmin, // Now allows both admin and moderator to delete
   deleteCategory
 );
+
+
+// Subcategory CRUD (Moderators and Admins) - NO IMAGE UPLOAD NEEDED
+router.post('/:categoryId/subcategories',
+  isModeratorOrAdmin,
+  // Remove upload.single('image') since we don't need image
+  addSubcategory
+);
+
+router.put('/:categoryId/subcategories/:subcategoryId',
+  isModeratorOrAdmin,
+  // Remove upload.single('image') since we don't need image
+  updateSubcategory
+);
+
+router.delete('/:categoryId/subcategories/:subcategoryId',
+  isModeratorOrAdmin,
+  deleteSubcategory
+);
+
 
 module.exports = router;
 

@@ -53,6 +53,60 @@ const formatDate = (dateString) => {
 /**
  * Generate HTML for invoice items
  */
+// const generateInvoiceItemsHTML = (items) => {
+//   let html = '';
+  
+//   items.forEach((item) => {
+//     let productImage = item.productImage || 'https://via.placeholder.com/60?text=No+Image';
+    
+//     html += `
+//       <div style="margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid #E39A65; border-radius: 4px;">
+//         <div style="display: flex; align-items: flex-start; gap: 20px; margin-bottom: 15px;">
+//           <img src="${productImage}" alt="${item.productName}" 
+//                style="width: 70px; height: 70px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; display: block; margin-right: 15px;"
+//                onerror="this.onerror=null; this.src='https://via.placeholder.com/70?text=No+Image';">
+//           <div style="flex: 1;">
+//             <h4 style="margin: 0 0 8px 0; color: #333; font-size: 16px; font-weight: 600;">${item.productName}</h4>
+//             <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">
+//               <span style="display: inline-block; min-width: 100px;">Total Quantity:</span> <strong>${item.totalQuantity} pcs</strong><br>
+//               <span style="display: inline-block; min-width: 100px;">Unit Price:</span> <strong style="color: #E39A65;">${formatPrice(item.unitPrice)}</strong>
+//             </p>
+//           </div>
+//         </div>
+        
+//         <div style="margin-top: 15px;">
+//           <h5 style="margin: 0 0 12px 0; color: #555; font-size: 14px; font-weight: 600;">Colors & Sizes:</h5>
+//           ${item.colors.map(color => {
+//             let colorName = color.color.name || color.color.code || 'Color';
+//             if (colorName.startsWith('#')) {
+//               colorName = 'Color';
+//             }
+            
+//             return `
+//             <div style="margin-bottom: 10px; padding: 10px; background: white; border-radius: 6px; border: 1px solid #eee;">
+//               <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+//                 <div style="width: 22px; height: 22px; background-color: ${color.color.code}; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
+//                 <span style="font-weight: 600; color: #444;">${colorName}</span>
+//                 <span style="color: #E39A65; font-weight: 700; margin-left: auto; background: #fef0e7; padding: 2px 10px; border-radius: 20px;">${color.totalForColor} pcs</span>
+//               </div>
+//               <div style="display: flex; flex-wrap: wrap; gap: 8px; padding-left: 32px;">
+//                 ${color.sizeQuantities.map(sq => `
+//                   <span style="background: #f0f0f0; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;">
+//                     ${sq.size}: <strong>${sq.quantity}</strong>
+//                   </span>
+//                 `).join('')}
+//               </div>
+//             </div>
+//           `}).join('')}
+//         </div>
+//       </div>
+//     `;
+//   });
+  
+//   return html;
+// };
+
+
 const generateInvoiceItemsHTML = (items) => {
   let html = '';
   
@@ -68,8 +122,7 @@ const generateInvoiceItemsHTML = (items) => {
           <div style="flex: 1;">
             <h4 style="margin: 0 0 8px 0; color: #333; font-size: 16px; font-weight: 600;">${item.productName}</h4>
             <p style="margin: 0; color: #666; font-size: 14px; line-height: 1.5;">
-              <span style="display: inline-block; min-width: 100px;">Total Quantity:</span> <strong>${item.totalQuantity} pcs</strong><br>
-              <span style="display: inline-block; min-width: 100px;">Unit Price:</span> <strong style="color: #E39A65;">${formatPrice(item.unitPrice)}</strong>
+              <span style="display: inline-block; min-width: 100px;">Total Quantity:</span> <strong>${item.totalQuantity} pcs</strong>
             </p>
           </div>
         </div>
@@ -82,12 +135,18 @@ const generateInvoiceItemsHTML = (items) => {
               colorName = 'Color';
             }
             
+            // Get per-color unit price (use color.unitPrice, fallback to item.unitPrice)
+            const colorUnitPrice = color.unitPrice || item.unitPrice || 0;
+            const colorTotal = (color.totalForColor || 0) * colorUnitPrice;
+            
             return `
             <div style="margin-bottom: 10px; padding: 10px; background: white; border-radius: 6px; border: 1px solid #eee;">
               <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                 <div style="width: 22px; height: 22px; background-color: ${color.color.code}; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"></div>
                 <span style="font-weight: 600; color: #444;">${colorName}</span>
-                <span style="color: #E39A65; font-weight: 700; margin-left: auto; background: #fef0e7; padding: 2px 10px; border-radius: 20px;">${color.totalForColor} pcs</span>
+                <span style="color: #E39A65; font-weight: 700; margin-left: auto; background: #fef0e7; padding: 2px 10px; border-radius: 20px;">
+                  ${color.totalForColor} pcs
+                </span>
               </div>
               <div style="display: flex; flex-wrap: wrap; gap: 8px; padding-left: 32px;">
                 ${color.sizeQuantities.map(sq => `
@@ -95,6 +154,17 @@ const generateInvoiceItemsHTML = (items) => {
                     ${sq.size}: <strong>${sq.quantity}</strong>
                   </span>
                 `).join('')}
+              </div>
+              <div style="margin-top: 8px; padding-top: 6px; border-top: 1px dashed #eee; display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
+                <div>
+                  <span style="color: #666;">Unit Price: </span>
+                  <strong style="color: #E39A65;">${formatPrice(colorUnitPrice)}</strong>
+                  <span style="color: #666;"> / pc</span>
+                </div>
+                <div>
+                  <span style="color: #666;">Subtotal: </span>
+                  <strong style="color: #E39A65;">${formatPrice(colorTotal)}</strong>
+                </div>
               </div>
             </div>
           `}).join('')}
@@ -105,7 +175,6 @@ const generateInvoiceItemsHTML = (items) => {
   
   return html;
 };
-
 /**
  * Generate HTML for invoice summary
  */

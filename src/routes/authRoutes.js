@@ -53,7 +53,8 @@ const {
   completeProfile,
   logoutUser,
   googleSignup,
-  checkProfileStatus
+  checkProfileStatus,
+  adminCreateCustomer
 } = require('../controllers/authController');
 const { protect, authorize } = require('../middleware/authMiddleware');
 
@@ -70,6 +71,8 @@ router.post('/reset-password', resetPassword);
 router.post('/google', googleAuth);
 router.post('/complete-profile', protect, completeProfile);
 router.post('/google-signup', googleSignup);
+// Add this route with the other routes
+router.post('/admin/create-customer', protect, authorize('admin'), adminCreateCustomer);
 
 // Protected routes
 router.get('/me', protect, getMe);

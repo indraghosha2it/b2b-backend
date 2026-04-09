@@ -8,7 +8,9 @@ const {
   deleteUser,
   getCustomers,  // Add this
   deleteCustomer ,
-  createUser// Add this
+  createUser,// Add this
+   updateCustomer,        // Add this
+  resetCustomerPassword  // Add this
 } = require('../controllers/adminController');
 // All routes are protected and require admin role
 router.use(protect, isAdmin);
@@ -21,5 +23,7 @@ router.delete('/users/:id', deleteUser);
 
 // Customer management routes
 router.get('/customers', getCustomers);
+router.put('/customers/:id', updateCustomer);                    // Edit customer
+router.put('/customers/:id/reset-password', resetCustomerPassword); // Reset password
 router.delete('/customers/:id', deleteCustomer);
 module.exports = router;

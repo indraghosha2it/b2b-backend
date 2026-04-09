@@ -12,7 +12,11 @@ const invoiceItemColorSchema = new mongoose.Schema({
     size: String,
     quantity: Number
   }],
-  totalForColor: Number
+  totalForColor: Number,
+  unitPrice: {  // ← ADD THIS
+    type: Number,
+    default: 0
+  }
 }, { _id: false });
 
 const invoiceItemSchema = new mongoose.Schema({

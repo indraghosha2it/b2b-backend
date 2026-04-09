@@ -51,6 +51,7 @@ const getInquiryTypeColor = (type) => {
     partnership: '#4CAF50',
     other: '#FF9800'
   };
+  // For custom types, use a default color
   return colors[type] || '#E39A65';
 };
 
@@ -65,6 +66,7 @@ const getInquiryTypeLabel = (type) => {
     partnership: 'Partnership',
     other: 'Other'
   };
+  // If it's not a predefined type, return the custom text
   return labels[type] || type;
 };
 
@@ -246,7 +248,7 @@ const sendContactFormEmails = async (formData) => {
               <div class="quick-response">
                 <p style="margin: 0; font-size: 16px;">
                   <span style="font-size: 20px; margin-right: 8px;">⏱️</span>
-                  <strong>Response Time:</strong> Within 2 hours (Mon-Fri, 9AM-6PM BST)
+                  <strong>Response Time:</strong> Within 24 hours (Mon-Fri, 9AM-6PM BST)
                 </p>
               </div>
 

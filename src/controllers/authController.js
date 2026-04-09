@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs'); // ADDED MISSING IMPORT
 const { generateOTP, sendOTPEmail } = require('../utils/emailOtpService');
 const { generateOTP: generateResetOTP, sendPasswordResetOTP } = require('../utils/forgetPasswordOtpService');
-// Add these imports at the top
+const { sendWelcomeEmail, sendGoogleWelcomeEmail } = require('../utils/welcomeEmailService');// Add these imports at the top
 const admin = require('../config/firebaseAdmin');
 
 // Generate JWT Token
@@ -317,6 +317,89 @@ const registerUser = async (req, res) => {
 // @desc    Verify OTP and complete registration
 // @route   POST /api/auth/verify-otp
 // @access  Public
+// const verifyOTP = async (req, res) => {
+//   try {
+//     const { email, otp } = req.body;
+
+//     if (!email || !otp) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Please provide email and OTP'
+//       });
+//     }
+
+//     // Find user with pending status
+//     const user = await User.findOne({ 
+//       email: email.toLowerCase(),
+//       registrationStatus: 'pending'
+//     }).select('+otp +otpExpiry');
+
+//     if (!user) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid request or user already verified'
+//       });
+//     }
+
+//     // Check if OTP is expired
+//     if (user.otpExpiry < new Date()) {
+//       // Delete expired user
+//       await User.deleteOne({ _id: user._id });
+//       return res.status(400).json({
+//         success: false,
+//         error: 'OTP has expired. Please register again.'
+//       });
+//     }
+
+//     // Verify OTP
+//     if (user.otp !== otp) {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Invalid OTP'
+//       });
+//     }
+
+//     // Update user status
+//     user.isActive = true;
+//     user.emailVerified = true;
+//     user.registrationStatus = 'completed';
+//     user.otp = undefined;
+//     user.otpExpiry = undefined;
+//     await user.save();
+
+//     // Generate token
+//     const token = jwt.sign(
+//       { 
+//         id: user._id, 
+//         email: user.email,
+//         role: user.role,
+//         companyName: user.companyName
+//       },
+//       process.env.JWT_SECRET || 'your-secret-key-change-this',
+//       { expiresIn: process.env.JWT_EXPIRE || '7d' }
+//     );
+
+//     console.log('✅ Email verified successfully for:', email);
+
+//     res.json({
+//       success: true,
+//       message: 'Email verified successfully! Registration complete.',
+//       token,
+//       user: user.toJSON()
+//     });
+
+//   } catch (error) {
+//     console.error('❌ OTP verification error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: 'Server error during verification'
+//     });
+//   }
+// };
+
+// Add this import at the top of authController.js
+
+// Then update the verifyOTP function:
 const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -366,6 +449,11 @@ const verifyOTP = async (req, res) => {
     user.otp = undefined;
     user.otpExpiry = undefined;
     await user.save();
+
+    // 🆕 SEND WELCOME EMAIL (non-blocking - don't await if you don't want to delay response)
+    // Send welcome email in background - don't block the response
+    sendWelcomeEmail(user.email, user.companyName || user.contactPerson, null)
+      .catch(err => console.error('Background welcome email failed:', err));
 
     // Generate token
     const token = jwt.sign(
@@ -1492,6 +1580,11 @@ const googleSignup = async (req, res) => {
 
     await user.save();
 
+    // 🆕 SEND WELCOME EMAIL FOR GOOGLE SIGNUP
+    const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
+    sendGoogleWelcomeEmail(user.email, user.contactPerson, !isProfileComplete)
+      .catch(err => console.error('Background welcome email failed:', err));
+
     // Generate JWT token for your app
     const token = jwt.sign(
       { 
@@ -1505,7 +1598,7 @@ const googleSignup = async (req, res) => {
     );
 
     // Check if profile is complete (needs additional info)
-    const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
+    // const isProfileComplete = !!(user.country && user.address && user.city && user.zipCode && user.phone);
 
     res.status(201).json({
       success: true,
@@ -1591,6 +1684,142 @@ const checkProfileStatus = async (req, res) => {
   }
 };
 
+// @desc    Admin creates customer account (no OTP, direct activation)
+// @route   POST /api/auth/admin/create-customer
+// @access  Private (Admin only)
+const adminCreateCustomer = async (req, res) => {
+  try {
+    console.log('📝 Admin creating customer account');
+
+    const {
+      companyName,
+      contactPerson,
+      email,
+      phone,
+      whatsapp,
+      country,
+      address,
+      city,
+      zipCode,
+      password,
+      businessType
+    } = req.body;
+
+    // Validate required fields
+    const missingFields = [];
+    if (!companyName) missingFields.push('companyName');
+    if (!contactPerson) missingFields.push('contactPerson');
+    if (!email) missingFields.push('email');
+    if (!phone) missingFields.push('phone');
+    if (!country) missingFields.push('country');
+    if (!address) missingFields.push('address');
+    if (!city) missingFields.push('city');
+    if (!zipCode) missingFields.push('zipCode');
+    if (!password) missingFields.push('password');
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Missing required fields: ${missingFields.join(', ')}`
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a valid email address'
+      });
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long'
+      });
+    }
+
+    // Check if user already exists
+    const userExists = await User.findOne({ email: email.toLowerCase() });
+    if (userExists) {
+      return res.status(400).json({
+        success: false,
+        error: 'User with this email already exists'
+      });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new user with completed status (no OTP needed)
+    const user = new User({
+      companyName,
+      contactPerson,
+      email: email.toLowerCase(),
+      phone,
+      whatsapp: whatsapp || '',
+      country,
+      address,
+      city,
+      zipCode,
+      role: 'customer',
+      password: hashedPassword,
+      businessType: businessType || 'Retailer',
+      isActive: true,
+      emailVerified: true, // Auto-verified since admin created
+      registrationStatus: 'completed', // Directly completed
+      authProvider: 'local',
+      createdBy: req.user.id // Track which admin created this user
+    });
+
+    // Save user
+    await user.save();
+
+    console.log('✅ Customer account created by admin:', user._id);
+
+    // Send welcome email directly (no OTP)
+    try {
+      await sendWelcomeEmail(user.email, user.companyName || user.contactPerson);
+      console.log('✅ Welcome email sent to:', email);
+    } catch (emailError) {
+      console.error('⚠️ Welcome email failed but account created:', emailError.message);
+      // Don't fail the request if email fails - account is still created
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Customer account created successfully! Welcome email sent.',
+      user: user.toJSON()
+    });
+
+  } catch (error) {
+    console.error('❌ Admin create customer error:', error);
+    
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email already exists'
+      });
+    }
+
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        error: messages.join(', ')
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error during customer creation'
+    });
+  }
+};
+
 
 
 // @desc    Logout user
@@ -1620,5 +1849,6 @@ module.exports = {
   completeProfile,
   checkProfileStatus,
   googleSignup,
+  adminCreateCustomer,
   logoutUser
 };

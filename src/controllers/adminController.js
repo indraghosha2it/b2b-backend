@@ -594,6 +594,102 @@ const deleteUser = async (req, res) => {
     });
   }
 };
+// Add these functions to your existing adminController.js (before module.exports)
+
+// @desc    Update customer (Admin only)
+// @route   PUT /api/admin/customers/:id
+// @access  Private/Admin
+const updateCustomer = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    // Fields that can be updated
+    const allowedUpdates = [
+      'companyName', 'contactPerson', 'phone', 'whatsapp', 
+      'country', 'address', 'city', 'zipCode', 'businessType', 'isActive'
+    ];
+    
+    const updateData = {};
+    allowedUpdates.forEach(field => {
+      if (updates[field] !== undefined) {
+        updateData[field] = updates[field];
+      }
+    });
+    
+    const user = await User.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true }
+    ).select('-password -resetPasswordToken -resetPasswordExpires -emailVerificationToken -otp -otpExpiry -resetPasswordOTP -resetPasswordOTPExpiry');
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Customer not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Customer updated successfully',
+      user
+    });
+  } catch (error) {
+    console.error('Error updating customer:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error'
+    });
+  }
+};
+
+// @desc    Reset customer password (Admin only)
+// @route   PUT /api/admin/customers/:id/reset-password
+// @access  Private/Admin
+const resetCustomerPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    
+    if (!newPassword || newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long'
+      });
+    }
+    
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    
+    const user = await User.findByIdAndUpdate(
+      id,
+      { password: hashedPassword },
+      { new: true }
+    );
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Customer not found'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error'
+    });
+  }
+};
+
+
 
 module.exports = {
   getUsers,
@@ -601,5 +697,7 @@ module.exports = {
   updateUser,
   deleteUser,
   getCustomers,
-  deleteCustomer
+  deleteCustomer,
+    updateCustomer,        // Add this
+  resetCustomerPassword 
 };

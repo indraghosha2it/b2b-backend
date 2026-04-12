@@ -257,6 +257,7 @@ const createProduct = async (req, res) => {
       instruction,
       category,
       subcategory, // NEW: Subcategory ID (optional)
+      childSubcategory,
       targetedCustomer,
       fabric,
       moq,
@@ -303,7 +304,9 @@ const createProduct = async (req, res) => {
     // If subcategory is provided, validate it exists in the category
     let subcategoryName = '';
     let subcategoryDoc = null;
-    
+    let childSubcategoryName = '';
+let childSubcategoryDoc = null;
+
     if (subcategory && subcategory !== '') {
       // Find the subcategory in the category's subcategories array
       subcategoryDoc = categoryExists.subcategories.id(subcategory);
@@ -316,8 +319,23 @@ const createProduct = async (req, res) => {
       }
       
       subcategoryName = subcategoryDoc.name;
-      console.log('Valid subcategory found:', subcategoryName);
+// NEW: Validate child subcategory if provided
+  if (childSubcategory && childSubcategory !== '') {
+    childSubcategoryDoc = subcategoryDoc.children.id(childSubcategory);
+    if (!childSubcategoryDoc) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid child subcategory for this subcategory'
+      });
     }
+    childSubcategoryName = childSubcategoryDoc.name;
+  }
+
+      
+    }
+
+
+    
 
     // CRITICAL: Check if at least one image URL is provided
     if (!images || !Array.isArray(images) || images.length === 0) {
@@ -448,6 +466,8 @@ const createProduct = async (req, res) => {
       category,
       subcategory: subcategory || null, // Store subcategory ID
       subcategoryName: subcategoryName, // Store subcategory name for denormalization
+       childSubcategory: childSubcategory || null, // NEW
+  childSubcategoryName: childSubcategoryName, // NEW
       targetedCustomer: targetedCustomer || 'unisex',
       fabric,
       moq: parseInt(moq) || 100,
@@ -484,6 +504,9 @@ const createProduct = async (req, res) => {
       tags: product.tags,
       subcategoryId: product.subcategory, // Store subcategory ID in embedded product
       subcategoryName: product.subcategoryName, // Store subcategory name in embedded product
+     childSubcategoryId: product.childSubcategory, // NEW
+  childSubcategoryName: product.childSubcategoryName, // NEW
+     
       isActive: product.isActive,
       createdBy: product.createdBy,
       createdAt: product.createdAt
@@ -498,6 +521,25 @@ const createProduct = async (req, res) => {
       },
       { new: true }
     );
+
+    if (childSubcategory && childSubcategoryDoc) {
+  await Category.findOneAndUpdate(
+    { 
+      _id: category,
+      'subcategories._id': subcategory,
+      'subcategories.children._id': childSubcategory
+    },
+    {
+      $inc: { 'subcategories.$[sub].children.$[child].productCount': 1 }
+    },
+    {
+      arrayFilters: [
+        { 'sub._id': subcategory },
+        { 'child._id': childSubcategory }
+      ]
+    }
+  );
+}
 
     // If subcategory is selected, also increment the subcategory's product count
     if (subcategory && subcategoryDoc) {
@@ -602,6 +644,7 @@ const getProducts = async (req, res) => {
       limit = 12, 
       category, 
       subcategory,
+       childSubcategory,
       search, 
       minPrice, 
       maxPrice,
@@ -652,6 +695,15 @@ const getProducts = async (req, res) => {
         query.subcategory = { $in: subcategory };
       } else {
         query.subcategory = subcategory;
+      }
+    }
+
+      // NEW: Filter by childSubcategory
+    if (childSubcategory) {
+      if (Array.isArray(childSubcategory)) {
+        query.childSubcategory = { $in: childSubcategory };
+      } else {
+        query.childSubcategory = childSubcategory;
       }
     }
 
@@ -710,6 +762,8 @@ const getProducts = async (req, res) => {
       sortOption = { createdAt: -1 };
     }
 
+
+    console.log('Child Subcategory filter:', childSubcategory); // Debug log
     console.log('Subcategory filter:', subcategory);
     console.log('Search query:', search); // Debug log
     console.log('MongoDB query:', JSON.stringify(query)); // Debug log
@@ -852,9 +906,11 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 
 
 
-// @desc    Update product - MODIFIED to accept JSON with image URLs
+
+
+// @desc    Update product - WITH SUBCATEGORY SUPPORT
 // @route   PUT /api/products/:id
-// @access  Private (Moderator/Admin) fix one before subcategory
+// @access  Private (Moderator/Admin) 
 // const updateProduct = async (req, res) => {
 //   try {
 //     const product = await Product.findById(req.params.id);
@@ -879,6 +935,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       description,
 //       instruction,
 //       category,
+//       subcategory, // NEW: Subcategory ID (optional)
 //       targetedCustomer,
 //       fabric,
 //       moq,
@@ -891,24 +948,15 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       tags,
 //       metaSettings,
 //       images,
-//       imagesToDelete // Array of image URLs
+//       imagesToDelete
 //     } = req.body;
 
-
-//     // Delete old images from Cloudinary if provided
-//     if (imagesToDelete && Array.isArray(imagesToDelete) && imagesToDelete.length > 0) {
-//       for (const publicId of imagesToDelete) {
-//         try {
-//           await cloudinary.uploader.destroy(publicId);
-//           console.log('Deleted image from Cloudinary:', publicId);
-//         } catch (cloudinaryError) {
-//           console.error('Error deleting image from Cloudinary:', cloudinaryError);
-//         }
-//       }
-//     }
-    
+//     // Store old category and subcategory for updating counts
 //     const oldCategory = product.category.toString();
+//     const oldSubcategoryId = product.subcategory ? product.subcategory.toString() : null;
 //     const newCategory = category || oldCategory;
+//     let newSubcategoryId = subcategory || null;
+//     let newSubcategoryName = '';
 
 //     // Check if category is being changed
 //     if (category && category !== oldCategory) {
@@ -921,11 +969,90 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       }
 //     }
 
+//     // Handle subcategory validation and count updates
+//     if (newSubcategoryId) {
+//       // Find the category to validate subcategory
+//       const categoryDoc = await Category.findById(newCategory);
+//       if (!categoryDoc) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Category not found'
+//         });
+//       }
+      
+//       // Validate subcategory exists in this category
+//       const subcategoryDoc = categoryDoc.subcategories.id(newSubcategoryId);
+//       if (!subcategoryDoc) {
+//         return res.status(400).json({
+//           success: false,
+//           error: 'Invalid subcategory for this category'
+//         });
+//       }
+//       newSubcategoryName = subcategoryDoc.name;
+//     }
+
+//     // Handle subcategory count changes
+//     // Case 1: Subcategory changed from one to another
+//     if (oldSubcategoryId && newSubcategoryId && oldSubcategoryId !== newSubcategoryId) {
+//       // Decrement old subcategory count
+//       await Category.findOneAndUpdate(
+//         { 
+//           _id: oldCategory,
+//           'subcategories._id': oldSubcategoryId
+//         },
+//         { $inc: { 'subcategories.$.productCount': -1 } }
+//       );
+//       // Increment new subcategory count
+//       await Category.findOneAndUpdate(
+//         { 
+//           _id: newCategory,
+//           'subcategories._id': newSubcategoryId
+//         },
+//         { $inc: { 'subcategories.$.productCount': 1 } }
+//       );
+//     }
+//     // Case 2: Subcategory added (was null, now has value)
+//     else if (!oldSubcategoryId && newSubcategoryId) {
+//       await Category.findOneAndUpdate(
+//         { 
+//           _id: newCategory,
+//           'subcategories._id': newSubcategoryId
+//         },
+//         { $inc: { 'subcategories.$.productCount': 1 } }
+//       );
+//     }
+//     // Case 3: Subcategory removed (had value, now null)
+//     else if (oldSubcategoryId && !newSubcategoryId) {
+//       await Category.findOneAndUpdate(
+//         { 
+//           _id: oldCategory,
+//           'subcategories._id': oldSubcategoryId
+//         },
+//         { $inc: { 'subcategories.$.productCount': -1 } }
+//       );
+//     }
+
+//     // Delete old images from Cloudinary if provided
+//     if (imagesToDelete && Array.isArray(imagesToDelete) && imagesToDelete.length > 0) {
+//       for (const publicId of imagesToDelete) {
+//         try {
+//           await cloudinary.uploader.destroy(publicId);
+//           console.log('Deleted image from Cloudinary:', publicId);
+//         } catch (cloudinaryError) {
+//           console.error('Error deleting image from Cloudinary:', cloudinaryError);
+//         }
+//       }
+//     }
+
 //     // Update basic fields
 //     if (productName) product.productName = productName;
 //     if (description !== undefined) product.description = description;
 //     if (instruction !== undefined) product.instruction = instruction;
 //     if (category) product.category = category;
+//     if (subcategory !== undefined) {
+//       product.subcategory = newSubcategoryId;
+//       product.subcategoryName = newSubcategoryName;
+//     }
 //     if (targetedCustomer) product.targetedCustomer = targetedCustomer;
 //     if (fabric) product.fabric = fabric;
 //     if (moq) product.moq = parseInt(moq);
@@ -1133,6 +1260,8 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //       isActive: product.isActive,
 //       isFeatured: product.isFeatured,
 //       tags: product.tags,
+//       subcategoryId: product.subcategory,
+//       subcategoryName: product.subcategoryName,
 //       updatedAt: new Date()
 //     };
 
@@ -1177,8 +1306,7 @@ const removeEmbeddedProductFromCategory = async (categoryId, productId) => {
 //   }
 // };
 
-
-// @desc    Update product - WITH SUBCATEGORY SUPPORT
+// @desc    Update product - WITH SUBCATEGORY & CHILD SUBCATEGORY SUPPORT
 // @route   PUT /api/products/:id
 // @access  Private (Moderator/Admin)
 const updateProduct = async (req, res) => {
@@ -1205,7 +1333,8 @@ const updateProduct = async (req, res) => {
       description,
       instruction,
       category,
-      subcategory, // NEW: Subcategory ID (optional)
+      subcategory,
+      childSubcategory, // NEW: Add childSubcategory
       targetedCustomer,
       fabric,
       moq,
@@ -1221,12 +1350,16 @@ const updateProduct = async (req, res) => {
       imagesToDelete
     } = req.body;
 
-    // Store old category and subcategory for updating counts
+    // Store old values for count updates
     const oldCategory = product.category.toString();
     const oldSubcategoryId = product.subcategory ? product.subcategory.toString() : null;
+    const oldChildSubcategoryId = product.childSubcategory ? product.childSubcategory.toString() : null;
+    
     const newCategory = category || oldCategory;
     let newSubcategoryId = subcategory || null;
     let newSubcategoryName = '';
+    let newChildSubcategoryId = childSubcategory || null;
+    let newChildSubcategoryName = '';
 
     // Check if category is being changed
     if (category && category !== oldCategory) {
@@ -1239,9 +1372,8 @@ const updateProduct = async (req, res) => {
       }
     }
 
-    // Handle subcategory validation and count updates
+    // Handle subcategory validation
     if (newSubcategoryId) {
-      // Find the category to validate subcategory
       const categoryDoc = await Category.findById(newCategory);
       if (!categoryDoc) {
         return res.status(400).json({
@@ -1250,7 +1382,6 @@ const updateProduct = async (req, res) => {
         });
       }
       
-      // Validate subcategory exists in this category
       const subcategoryDoc = categoryDoc.subcategories.id(newSubcategoryId);
       if (!subcategoryDoc) {
         return res.status(400).json({
@@ -1259,47 +1390,131 @@ const updateProduct = async (req, res) => {
         });
       }
       newSubcategoryName = subcategoryDoc.name;
+      
+      // Handle child subcategory validation
+      if (newChildSubcategoryId) {
+        const childSubcategoryDoc = subcategoryDoc.children.id(newChildSubcategoryId);
+        if (!childSubcategoryDoc) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid child subcategory for this subcategory'
+          });
+        }
+        newChildSubcategoryName = childSubcategoryDoc.name;
+      }
     }
 
-    // Handle subcategory count changes
-    // Case 1: Subcategory changed from one to another
-    if (oldSubcategoryId && newSubcategoryId && oldSubcategoryId !== newSubcategoryId) {
+    // Handle count updates for subcategories and child subcategories
+    
+    // Case 1: Subcategory changed
+    if (oldSubcategoryId !== newSubcategoryId) {
       // Decrement old subcategory count
-      await Category.findOneAndUpdate(
-        { 
-          _id: oldCategory,
-          'subcategories._id': oldSubcategoryId
-        },
-        { $inc: { 'subcategories.$.productCount': -1 } }
-      );
+      if (oldSubcategoryId) {
+        await Category.findOneAndUpdate(
+          { 
+            _id: oldCategory,
+            'subcategories._id': oldSubcategoryId
+          },
+          { $inc: { 'subcategories.$.productCount': -1 } }
+        );
+      }
+      
       // Increment new subcategory count
-      await Category.findOneAndUpdate(
-        { 
-          _id: newCategory,
-          'subcategories._id': newSubcategoryId
-        },
-        { $inc: { 'subcategories.$.productCount': 1 } }
-      );
+      if (newSubcategoryId) {
+        await Category.findOneAndUpdate(
+          { 
+            _id: newCategory,
+            'subcategories._id': newSubcategoryId
+          },
+          { $inc: { 'subcategories.$.productCount': 1 } }
+        );
+      }
     }
-    // Case 2: Subcategory added (was null, now has value)
-    else if (!oldSubcategoryId && newSubcategoryId) {
-      await Category.findOneAndUpdate(
-        { 
-          _id: newCategory,
-          'subcategories._id': newSubcategoryId
-        },
-        { $inc: { 'subcategories.$.productCount': 1 } }
-      );
+    
+    // Case 2: Child subcategory changed (only if subcategory is the same)
+    if (oldSubcategoryId === newSubcategoryId && oldChildSubcategoryId !== newChildSubcategoryId) {
+      // Decrement old child subcategory count
+      if (oldChildSubcategoryId && oldSubcategoryId) {
+        await Category.findOneAndUpdate(
+          { 
+            _id: oldCategory,
+            'subcategories._id': oldSubcategoryId,
+            'subcategories.children._id': oldChildSubcategoryId
+          },
+          {
+            $inc: { 'subcategories.$[sub].children.$[child].productCount': -1 }
+          },
+          {
+            arrayFilters: [
+              { 'sub._id': oldSubcategoryId },
+              { 'child._id': oldChildSubcategoryId }
+            ]
+          }
+        );
+      }
+      
+      // Increment new child subcategory count
+      if (newChildSubcategoryId && newSubcategoryId) {
+        await Category.findOneAndUpdate(
+          { 
+            _id: newCategory,
+            'subcategories._id': newSubcategoryId,
+            'subcategories.children._id': newChildSubcategoryId
+          },
+          {
+            $inc: { 'subcategories.$[sub].children.$[child].productCount': 1 }
+          },
+          {
+            arrayFilters: [
+              { 'sub._id': newSubcategoryId },
+              { 'child._id': newChildSubcategoryId }
+            ]
+          }
+        );
+      }
     }
-    // Case 3: Subcategory removed (had value, now null)
-    else if (oldSubcategoryId && !newSubcategoryId) {
-      await Category.findOneAndUpdate(
-        { 
-          _id: oldCategory,
-          'subcategories._id': oldSubcategoryId
-        },
-        { $inc: { 'subcategories.$.productCount': -1 } }
-      );
+    
+    // Case 3: Both subcategory and child subcategory changed
+    if (oldSubcategoryId !== newSubcategoryId && oldChildSubcategoryId) {
+      // Decrement old child subcategory count
+      if (oldChildSubcategoryId && oldSubcategoryId) {
+        await Category.findOneAndUpdate(
+          { 
+            _id: oldCategory,
+            'subcategories._id': oldSubcategoryId,
+            'subcategories.children._id': oldChildSubcategoryId
+          },
+          {
+            $inc: { 'subcategories.$[sub].children.$[child].productCount': -1 }
+          },
+          {
+            arrayFilters: [
+              { 'sub._id': oldSubcategoryId },
+              { 'child._id': oldChildSubcategoryId }
+            ]
+          }
+        );
+      }
+      
+      // Increment new child subcategory count
+      if (newChildSubcategoryId && newSubcategoryId) {
+        await Category.findOneAndUpdate(
+          { 
+            _id: newCategory,
+            'subcategories._id': newSubcategoryId,
+            'subcategories.children._id': newChildSubcategoryId
+          },
+          {
+            $inc: { 'subcategories.$[sub].children.$[child].productCount': 1 }
+          },
+          {
+            arrayFilters: [
+              { 'sub._id': newSubcategoryId },
+              { 'child._id': newChildSubcategoryId }
+            ]
+          }
+        );
+      }
     }
 
     // Delete old images from Cloudinary if provided
@@ -1322,6 +1537,10 @@ const updateProduct = async (req, res) => {
     if (subcategory !== undefined) {
       product.subcategory = newSubcategoryId;
       product.subcategoryName = newSubcategoryName;
+    }
+    if (childSubcategory !== undefined) {
+      product.childSubcategory = newChildSubcategoryId;
+      product.childSubcategoryName = newChildSubcategoryName;
     }
     if (targetedCustomer) product.targetedCustomer = targetedCustomer;
     if (fabric) product.fabric = fabric;
@@ -1532,6 +1751,8 @@ const updateProduct = async (req, res) => {
       tags: product.tags,
       subcategoryId: product.subcategory,
       subcategoryName: product.subcategoryName,
+      childSubcategoryId: product.childSubcategory, // NEW
+      childSubcategoryName: product.childSubcategoryName, // NEW
       updatedAt: new Date()
     };
 
@@ -1668,6 +1889,28 @@ const deleteProduct = async (req, res) => {
         success: false,
         error: 'Only admins can delete products'
       });
+    }
+
+
+    // Decrement child subcategory product count if product has a child subcategory
+    if (product.childSubcategory && product.subcategory) {
+      await Category.findOneAndUpdate(
+        { 
+          _id: product.category,
+          'subcategories._id': product.subcategory,
+          'subcategories.children._id': product.childSubcategory
+        },
+        {
+          $inc: { 'subcategories.$[sub].children.$[child].productCount': -1 }
+        },
+        {
+          arrayFilters: [
+            { 'sub._id': product.subcategory },
+            { 'child._id': product.childSubcategory }
+          ]
+        }
+      );
+      console.log(`Decremented product count for child subcategory: ${product.childSubcategoryName}`);
     }
 
     // Decrement subcategory product count if product has a subcategory

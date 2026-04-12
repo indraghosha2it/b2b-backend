@@ -14,7 +14,11 @@ const {
   getSubcategories,
   getSubcategoryById,
   updateSubcategory,
-  deleteSubcategory
+  deleteSubcategory,
+  addChildSubcategory,
+  getChildSubcategories,
+  updateChildSubcategory,
+  deleteChildSubcategory
 } = require('../controllers/categoryController');
 
 // Public routes (no authentication needed)
@@ -27,7 +31,12 @@ router.get('/:id/details', getCategoryDetails);
 router.get('/:categoryId/subcategories', getSubcategories);
 router.get('/:categoryId/subcategories/:subcategoryId', getSubcategoryById);
 
+
+
+router.get('/:categoryId/subcategories/:subcategoryId/children', getChildSubcategories);
+router.get('/:categoryId/subcategories/:subcategoryId/children/:childId', getChildSubcategories);
 // Protected routes - All routes below require authentication
+
 router.use(protect); // This applies to all routes below
 
 // Moderators and Admins can create categories
@@ -68,6 +77,12 @@ router.delete('/:categoryId/subcategories/:subcategoryId',
   isModeratorOrAdmin,
   deleteSubcategory
 );
+
+
+// Child Subcategory CRUD
+router.post('/:categoryId/subcategories/:subcategoryId/children', isModeratorOrAdmin, addChildSubcategory);
+router.put('/:categoryId/subcategories/:subcategoryId/children/:childId', isModeratorOrAdmin, updateChildSubcategory);
+router.delete('/:categoryId/subcategories/:subcategoryId/children/:childId', isModeratorOrAdmin, deleteChildSubcategory);
 
 
 module.exports = router;

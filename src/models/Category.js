@@ -8,6 +8,36 @@ const additionalInfoSchema = new mongoose.Schema({
   fieldValue: String
 });
 
+// Sub-subcategory schema (nested)
+const childSubcategorySchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Subcategory name is required'],
+    trim: true,
+    maxlength: [100, 'Subcategory name cannot exceed 100 characters']
+  },
+  slug: {
+    type: String,
+    lowercase: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  productCount: {
+    type: Number,
+    default: 0
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 const subcategorySchema = new mongoose.Schema({
   name: {
     type: String,
@@ -27,6 +57,8 @@ const subcategorySchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+
+   children: [childSubcategorySchema],
   createdAt: {
     type: Date,
     default: Date.now
@@ -158,6 +190,31 @@ const categorySchema = new mongoose.Schema({
 });
 
 // Create slug from name before saving
+// categorySchema.pre('save', function() {
+//   if (this.isModified('name')) {
+//     this.slug = this.name
+//       .toLowerCase()
+//       .replace(/[^a-z0-9]+/g, '-')
+//       .replace(/(^-|-$)+/g, '');
+//   }
+
+//   // Generate slugs for subcategories
+//   if (this.isModified('subcategories')) {
+//     this.subcategories.forEach(subcat => {
+//       if (subcat.isModified('name') || !subcat.slug) {
+//         subcat.slug = subcat.name
+//           .toLowerCase()
+//           .replace(/[^a-z0-9]+/g, '-')
+//           .replace(/(^-|-$)+/g, '');
+//       }
+//       if (subcat.isModified('updatedAt')) {
+//         subcat.updatedAt = Date.now();
+//       }
+//     });
+//   }
+// });
+
+// Create slug from name before saving
 categorySchema.pre('save', function() {
   if (this.isModified('name')) {
     this.slug = this.name
@@ -166,7 +223,7 @@ categorySchema.pre('save', function() {
       .replace(/(^-|-$)+/g, '');
   }
 
-  // Generate slugs for subcategories
+  // Generate slugs for subcategories and their children
   if (this.isModified('subcategories')) {
     this.subcategories.forEach(subcat => {
       if (subcat.isModified('name') || !subcat.slug) {
@@ -178,8 +235,25 @@ categorySchema.pre('save', function() {
       if (subcat.isModified('updatedAt')) {
         subcat.updatedAt = Date.now();
       }
+      
+      // Generate slugs for children
+      if (subcat.children && subcat.children.length > 0) {
+        subcat.children.forEach(child => {
+          if (child.isModified('name') || !child.slug) {
+            child.slug = child.name
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '-')
+              .replace(/(^-|-$)+/g, '');
+          }
+          if (child.isModified('updatedAt')) {
+            child.updatedAt = Date.now();
+          }
+        });
+      }
     });
   }
 });
+
+
 
 module.exports = mongoose.model('Category', categorySchema);

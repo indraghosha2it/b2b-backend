@@ -317,6 +317,15 @@ subcategoryName: {
   type: String,
   trim: true
 },
+childSubcategory: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: 'Category.subcategories.children',
+  required: false
+},
+childSubcategoryName: {
+  type: String,
+  trim: true
+},
 
   // Fabric/Material
   fabric: {

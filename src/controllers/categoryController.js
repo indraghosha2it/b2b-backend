@@ -402,6 +402,53 @@ const addSubcategory = async (req, res) => {
 // @desc    Get all subcategories of a category
 // @route   GET /api/categories/:categoryId/subcategories
 // @access  Public
+// const getSubcategories = async (req, res) => {
+//   try {
+//     const category = await Category.findById(req.params.categoryId)
+//       .select('name subcategories');
+
+//     if (!category) {
+//       return res.status(404).json({
+//         success: false,
+//         error: 'Category not found'
+//       });
+//     }
+
+//     // Filter only active subcategories
+//     const activeSubcategories = category.subcategories.filter(sub => sub.isActive === true);
+
+//     // Return simplified subcategory data (only needed fields)
+//     const simplifiedSubcategories = activeSubcategories.map(sub => ({
+//       _id: sub._id,
+//       name: sub.name,
+//       slug: sub.slug,
+//       isActive: sub.isActive,
+//       productCount: sub.productCount,
+//       createdAt: sub.createdAt,
+//       updatedAt: sub.updatedAt
+//     }));
+
+//     res.json({
+//       success: true,
+//       data: {
+//         categoryId: category._id,
+//         categoryName: category.name,
+//         subcategories: simplifiedSubcategories,
+//         total: simplifiedSubcategories.length
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Get subcategories error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while fetching subcategories'
+//     });
+//   }
+// };
+
+// @desc    Get all subcategories of a category (WITH CHILDREN)
+// @route   GET /api/categories/:categoryId/subcategories
+// @access  Public
 const getSubcategories = async (req, res) => {
   try {
     const category = await Category.findById(req.params.categoryId)
@@ -414,27 +461,35 @@ const getSubcategories = async (req, res) => {
       });
     }
 
-    // Filter only active subcategories
-    const activeSubcategories = category.subcategories.filter(sub => sub.isActive === true);
-
-    // Return simplified subcategory data (only needed fields)
-    const simplifiedSubcategories = activeSubcategories.map(sub => ({
-      _id: sub._id,
-      name: sub.name,
-      slug: sub.slug,
-      isActive: sub.isActive,
-      productCount: sub.productCount,
-      createdAt: sub.createdAt,
-      updatedAt: sub.updatedAt
-    }));
+    // Filter only active subcategories and include their children
+    const activeSubcategories = category.subcategories
+      .filter(sub => sub.isActive === true)
+      .map(sub => ({
+        _id: sub._id,
+        name: sub.name,
+        slug: sub.slug,
+        isActive: sub.isActive,
+        productCount: sub.productCount,
+        createdAt: sub.createdAt,
+        updatedAt: sub.updatedAt,
+        children: sub.children ? sub.children.filter(child => child.isActive === true).map(child => ({
+          _id: child._id,
+          name: child.name,
+          slug: child.slug,
+          isActive: child.isActive,
+          productCount: child.productCount,
+          createdAt: child.createdAt,
+          updatedAt: child.updatedAt
+        })) : []
+      }));
 
     res.json({
       success: true,
       data: {
         categoryId: category._id,
         categoryName: category.name,
-        subcategories: simplifiedSubcategories,
-        total: simplifiedSubcategories.length
+        subcategories: activeSubcategories,
+        total: activeSubcategories.length
       }
     });
   } catch (error) {
@@ -613,11 +668,269 @@ const deleteSubcategory = async (req, res) => {
 };
 
 
+// ============ CHILD SUBCATEGORY (SUB-SUBCATEGORY) CONTROLLERS ============
 
-// Update module.exports
+// @desc    Add child subcategory to a subcategory
+// @route   POST /api/categories/:categoryId/subcategories/:subcategoryId/children
+// @access  Private (Moderator/Admin)
+const addChildSubcategory = async (req, res) => {
+  try {
+    const { name } = req.body;
+    const { categoryId, subcategoryId } = req.params;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Child subcategory name is required'
+      });
+    }
+
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    const subcategory = category.subcategories.id(subcategoryId);
+    if (!subcategory) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subcategory not found'
+      });
+    }
+
+    // Check for duplicate child names
+    const existingChild = subcategory.children.find(
+      child => child.name.toLowerCase() === name.toLowerCase()
+    );
+
+    if (existingChild) {
+      return res.status(400).json({
+        success: false,
+        error: 'Child subcategory with this name already exists'
+      });
+    }
+
+    const newChild = {
+      name: name.trim(),
+      isActive: true,
+      productCount: 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    subcategory.children.push(newChild);
+    await category.save();
+
+    const addedChild = subcategory.children[subcategory.children.length - 1];
+
+    res.status(201).json({
+      success: true,
+      data: addedChild,
+      message: 'Child subcategory added successfully'
+    });
+  } catch (error) {
+    console.error('Add child subcategory error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while adding child subcategory'
+    });
+  }
+};
+
+// @desc    Get all child subcategories of a subcategory
+// @route   GET /api/categories/:categoryId/subcategories/:subcategoryId/children
+// @access  Public
+// @desc    Get all child subcategories of a subcategory
+// @route   GET /api/categories/:categoryId/subcategories/:subcategoryId/children
+// @access  Public
+const getChildSubcategories = async (req, res) => {
+  try {
+    const { categoryId, subcategoryId } = req.params;
+    const category = await Category.findById(categoryId).select('name subcategories');
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    const subcategory = category.subcategories.id(subcategoryId);
+    if (!subcategory) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subcategory not found'
+      });
+    }
+
+    const activeChildren = (subcategory.children || [])
+      .filter(child => child.isActive === true)
+      .map(child => ({
+        _id: child._id,
+        name: child.name,
+        slug: child.slug,
+        isActive: child.isActive,
+        productCount: child.productCount,
+        createdAt: child.createdAt,
+        updatedAt: child.updatedAt
+      }));
+
+    res.json({
+      success: true,
+      data: {
+        categoryId: category._id,
+        categoryName: category.name,
+        subcategoryId: subcategory._id,
+        subcategoryName: subcategory.name,
+        children: activeChildren,
+        total: activeChildren.length
+      }
+    });
+  } catch (error) {
+    console.error('Get child subcategories error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while fetching child subcategories'
+    });
+  }
+};
+
+// @desc    Update child subcategory
+// @route   PUT /api/categories/:categoryId/subcategories/:subcategoryId/children/:childId
+// @access  Private (Moderator/Admin)
+const updateChildSubcategory = async (req, res) => {
+  try {
+    const { name, isActive } = req.body;
+    const { categoryId, subcategoryId, childId } = req.params;
+
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    const subcategory = category.subcategories.id(subcategoryId);
+    if (!subcategory) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subcategory not found'
+      });
+    }
+
+    const child = subcategory.children.id(childId);
+    if (!child) {
+      return res.status(404).json({
+        success: false,
+        error: 'Child subcategory not found'
+      });
+    }
+
+    if (name && name !== child.name) {
+      const nameExists = subcategory.children.some(
+        c => c.name.toLowerCase() === name.toLowerCase() && 
+             c._id.toString() !== childId
+      );
+      
+      if (nameExists) {
+        return res.status(400).json({
+          success: false,
+          error: 'Child subcategory with this name already exists'
+        });
+      }
+      child.name = name.trim();
+    }
+
+    if (isActive !== undefined) {
+      child.isActive = isActive;
+    }
+    
+    child.updatedAt = new Date();
+    await category.save();
+
+    res.json({
+      success: true,
+      data: {
+        _id: child._id,
+        name: child.name,
+        slug: child.slug,
+        isActive: child.isActive,
+        productCount: child.productCount,
+        updatedAt: child.updatedAt
+      },
+      message: 'Child subcategory updated successfully'
+    });
+  } catch (error) {
+    console.error('Update child subcategory error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while updating child subcategory'
+    });
+  }
+};
+
+// @desc    Delete child subcategory
+// @route   DELETE /api/categories/:categoryId/subcategories/:subcategoryId/children/:childId
+// @access  Private (Moderator/Admin)
+const deleteChildSubcategory = async (req, res) => {
+  try {
+    const { categoryId, subcategoryId, childId } = req.params;
+
+    const category = await Category.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        error: 'Category not found'
+      });
+    }
+
+    const subcategory = category.subcategories.id(subcategoryId);
+    if (!subcategory) {
+      return res.status(404).json({
+        success: false,
+        error: 'Subcategory not found'
+      });
+    }
+
+    const child = subcategory.children.id(childId);
+    if (!child) {
+      return res.status(404).json({
+        success: false,
+        error: 'Child subcategory not found'
+      });
+    }
+
+    if (child.productCount > 0) {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot delete - It has ${child.productCount} product(s)`
+      });
+    }
+
+    subcategory.children.pull({ _id: childId });
+    await category.save();
+
+    res.json({
+      success: true,
+      message: 'Child subcategory deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete child subcategory error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Server error while deleting child subcategory'
+    });
+  }
+};
 
 
-// Update module.exports
+
+
+
 
 
 module.exports = {
@@ -633,6 +946,10 @@ module.exports = {
   getSubcategories,
   getSubcategoryById,
   updateSubcategory,
-  deleteSubcategory
+  deleteSubcategory,
+   addChildSubcategory,
+  getChildSubcategories,
+  updateChildSubcategory,
+  deleteChildSubcategory
 
 };

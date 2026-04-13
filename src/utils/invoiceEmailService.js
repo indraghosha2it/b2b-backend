@@ -658,7 +658,7 @@ const sendInvoiceCreationEmails = async (invoice, customerDetails) => {
               ${additionalHTML}
               
               <div style="margin: 35px 0 25px; text-align: center;">
-                <a href="${frontendUrl}/customer/invoices/${invoice._id}" style="background: #E39A65; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <a href="${frontendUrl}" style="background: #E39A65; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                   View Invoice Details
                 </a>
               </div>
@@ -811,7 +811,7 @@ console.log('PDF filename:', `Invoice_${invoice.invoiceNumber}.pdf`);
               ${additionalHTML}
               
               <div class="text-center" style="margin: 30px 0;">
-                <a href="${frontendUrl}/admin/invoices/${invoice._id}" class="button">
+                <a href="${frontendUrl}" class="button">
                   View in Dashboard
                 </a>
               </div>
@@ -982,7 +982,7 @@ const sendInvoiceUpdateEmails = async (invoice, customerDetails, changes = 'Invo
               ${additionalHTML}
               
               <div style="margin: 35px 0 25px; text-align: center;">
-                <a href="${frontendUrl}/customer/invoices/${invoice._id}" style="background: #E39A65; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <a href="${frontendUrl}" style="background: #E39A65; color: white; padding: 14px 35px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold; font-size: 16px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                   View Invoice Details
                 </a>
               </div>
@@ -1143,7 +1143,7 @@ const sendInvoiceUpdateEmails = async (invoice, customerDetails, changes = 'Invo
               ${additionalHTML}
               
               <div class="text-center" style="margin: 30px 0;">
-                <a href="${frontendUrl}/admin/invoices/${invoice._id}" class="button">
+                <a href="${frontendUrl}" class="button">
                   View in Dashboard
                 </a>
               </div>

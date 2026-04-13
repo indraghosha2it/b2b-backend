@@ -503,7 +503,7 @@ const getSubcategories = async (req, res) => {
 
 // @desc    Get single subcategory
 // @route   GET /api/categories/:categoryId/subcategories/:subcategoryId
-// @access  Public
+
 const getSubcategoryById = async (req, res) => {
   try {
     const category = await Category.findById(req.params.categoryId);

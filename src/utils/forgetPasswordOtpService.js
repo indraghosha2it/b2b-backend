@@ -2,7 +2,7 @@
 const nodemailer = require('nodemailer');
 
 // Validate environment variables
-const requiredEnvVars = ['SMTP_USER', 'SMTP_PASSWORD', 'SMTP_HOST', 'SMTP_PORT'];
+const requiredEnvVars = ['INFO_SMTP_USER', 'INFO_SMTP_PASSWORD', 'INFO_SMTP_HOST', 'INFO_SMTP_PORT'];
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     console.error(`❌ Missing required environment variable: ${envVar}`);
@@ -12,12 +12,12 @@ for (const envVar of requiredEnvVars) {
 
 // Create transporter for Hostinger SMTP (port 465 with SSL)
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT) || 465,
+  host: process.env.INFO_SMTP_HOST,
+  port: parseInt(process.env.INFO_SMTP_PORT) || 465,
   secure: true, // true for port 465, false for other ports
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD
+    user: process.env.INFO_SMTP_USER,
+    pass: process.env.INFO_SMTP_PASSWORD
   },
   // Add TLS options for Hostinger
   tls: {
@@ -35,7 +35,7 @@ transporter.verify(function(error, success) {
     console.error('Please check your SMTP credentials in .env file');
   } else {
     console.log('✅ Forget Password Email Service is ready');
-    console.log(`📧 Connected to: ${process.env.SMTP_HOST}`);
+    console.log(`📧 Connected to: ${process.env.INFO_SMTP_HOST}`);
   }
 });
 
@@ -47,12 +47,12 @@ const generateOTP = () => {
 // Send password reset OTP email
 const sendPasswordResetOTP = async (email, otp, userName) => {
   // Validate email credentials first
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
+  if (!process.env.INFO_SMTP_USER || !process.env.INFO_SMTP_PASSWORD) {
     throw new Error('Email credentials not configured. Please check your .env file.');
   }
 
   const mailOptions = {
-    from: `"AsianClothify Support" <${process.env.SMTP_USER}>`,
+    from: `"AsianClothify Support" <${process.env.INFO_SMTP_USER}>`,
     to: email,
     subject: 'Password Reset Request - AsianClothify',
     html: `
@@ -120,8 +120,8 @@ const sendPasswordResetOTP = async (email, otp, userName) => {
 
   try {
     console.log(`📧 Attempting to send password reset OTP to: ${email}`);
-    console.log(`📧 Using SMTP server: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`);
-    console.log(`📧 From: ${process.env.SMTP_USER}`);
+    console.log(`📧 Using SMTP server: ${process.env.INFO_SMTP_HOST}:${process.env.INFO_SMTP_PORT}`);
+    console.log(`📧 From: ${process.env.INFO_SMTP_USER}`);
     
     const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Password reset OTP sent successfully to ${email}`);
@@ -142,7 +142,7 @@ const sendPasswordResetOTP = async (email, otp, userName) => {
     if (error.code === 'EAUTH') {
       throw new Error('Email authentication failed. Please check your SMTP username and password.');
     } else if (error.code === 'ESOCKET') {
-      throw new Error(`Could not connect to SMTP server ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}. Please check your network and firewall settings.`);
+      throw new Error(`Could not connect to SMTP server ${process.env.INFO_SMTP_HOST}:${process.env.INFO_SMTP_PORT}. Please check your network and firewall settings.`);
     } else if (error.code === 'ETIMEDOUT') {
       throw new Error('Connection to SMTP server timed out. Please check your network.');
     } else {

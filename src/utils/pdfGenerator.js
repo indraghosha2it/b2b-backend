@@ -1913,6 +1913,87 @@ const generateInvoicePDF = async (invoice) => {
            .stroke();
         
         // LEFT COLUMN: BANK DETAILS
+        // const leftX = bankingBoxX + 15;
+        // let leftY = bankingBoxY + 12;
+        
+        // doc.fillColor('#E39A65')
+        //    .fontSize(9)
+        //    .font('Helvetica-Bold')
+        //    .text('BANK DETAILS', leftX, leftY);
+        
+        // leftY += 16;
+        
+        // if (hasBankDetails) {
+        //   doc.fontSize(7.5)
+        //      .font('Helvetica')
+        //      .fillColor('#333333');
+          
+        //   const bankDetails = invoice.bankDetails;
+          
+        //   const drawBankLine = (label, value, y) => {
+        //     if (value && value.toString().trim()) {
+        //       const labelText = `${label}: `;
+        //       const fullText = labelText + value.toString();
+        //       const textWidth = doc.widthOfString(fullText, { fontSize: 7.5 });
+              
+        //       if (textWidth <= 230) {
+        //         doc.font('Helvetica-Bold')
+        //            .text(labelText, leftX, y, { continued: true })
+        //            .font('Helvetica')
+        //            .text(value.toString());
+        //         return 12;
+        //       } else {
+        //         doc.font('Helvetica-Bold')
+        //            .text(labelText, leftX, y, { continued: true })
+        //            .font('Helvetica')
+        //            .text(value.toString(), { width: 230 });
+        //         return doc.heightOfString(fullText, { width: 230 }) + 4;
+        //       }
+        //     }
+        //     return 0;
+        //   };
+          
+        //   if (bankDetails.bankName && bankDetails.bankName.toString().trim()) {
+        //     const height = drawBankLine('Bank Name', bankDetails.bankName, leftY);
+        //     leftY += height;
+        //   }
+        //   if (bankDetails.accountName && bankDetails.accountName.toString().trim()) {
+        //     const height = drawBankLine('Account Name', bankDetails.accountName, leftY);
+        //     leftY += height;
+        //   }
+        //   if (bankDetails.accountNumber && bankDetails.accountNumber.toString().trim()) {
+        //     const height = drawBankLine('Account Number', bankDetails.accountNumber, leftY);
+        //     leftY += height;
+        //   }
+        //   if (bankDetails.accountType && bankDetails.accountType.toString().trim()) {
+        //     const height = drawBankLine('Account Type', bankDetails.accountType, leftY);
+        //     leftY += height;
+        //   }
+        //   if (bankDetails.routingNumber && bankDetails.routingNumber.toString().trim()) {
+        //     const height = drawBankLine('Routing Number', bankDetails.routingNumber, leftY);
+        //     leftY += height;
+        //   }
+        //   if (bankDetails.swiftCode && bankDetails.swiftCode.toString().trim()) {
+        //     const height = drawBankLine('SWIFT Code', bankDetails.swiftCode, leftY);
+        //     leftY += height;
+        //   }
+        //   if (bankDetails.iban && bankDetails.iban.toString().trim()) {
+        //     const height = drawBankLine('IBAN', bankDetails.iban, leftY);
+        //     leftY += height;
+        //   }
+        //   if (bankDetails.bankAddress && bankDetails.bankAddress.toString().trim()) {
+        //     const height = drawBankLine('Bank Address', bankDetails.bankAddress, leftY);
+        //     leftY += height;
+        //   }
+        // } else {
+        //   doc.fillColor('#999999')
+        //      .fontSize(7.5)
+        //      .font('Helvetica')
+        //      .text('No bank details provided', leftX, leftY);
+        // }
+
+
+                // LEFT COLUMN: BANK DETAILS
         const leftX = bankingBoxX + 15;
         let leftY = bankingBoxY + 12;
         
@@ -1933,21 +2014,40 @@ const generateInvoicePDF = async (invoice) => {
           const drawBankLine = (label, value, y) => {
             if (value && value.toString().trim()) {
               const labelText = `${label}: `;
-              const fullText = labelText + value.toString();
-              const textWidth = doc.widthOfString(fullText, { fontSize: 7.5 });
+              const maxWidth = 220; // Maximum width for the text
               
-              if (textWidth <= 230) {
-                doc.font('Helvetica-Bold')
-                   .text(labelText, leftX, y, { continued: true })
-                   .font('Helvetica')
-                   .text(value.toString());
+              // Draw the label first
+              doc.font('Helvetica-Bold')
+                 .text(labelText, leftX, y, { continued: true });
+              
+              const valueStr = value.toString();
+              const labelWidth = doc.widthOfString(labelText, { fontSize: 7.5, font: 'Helvetica-Bold' });
+              const availableWidth = maxWidth - labelWidth;
+              
+              // Calculate remaining space on current line
+              const currentX = doc.x; // Get current X position after label
+              const remainingWidth = maxWidth - (currentX - leftX);
+              
+              const valueWidth = doc.widthOfString(valueStr, { fontSize: 7.5, font: 'Helvetica' });
+              
+              if (valueWidth <= remainingWidth) {
+                // Value fits on same line
+                doc.font('Helvetica')
+                   .text(valueStr);
                 return 12;
               } else {
-                doc.font('Helvetica-Bold')
-                   .text(labelText, leftX, y, { continued: true })
-                   .font('Helvetica')
-                   .text(value.toString(), { width: 230 });
-                return doc.heightOfString(fullText, { width: 230 }) + 4;
+                // Value doesn't fit - finish current line, then wrap
+                doc.font('Helvetica')
+                   .text(''); // End the current line
+                
+                // Draw the value on next line(s) with indentation
+                const indentX = leftX + 5; // Small indent for wrapped lines
+                doc.font('Helvetica')
+                   .text(valueStr, indentX, y + 10, { width: maxWidth - 5 });
+                
+                // Calculate height of wrapped text
+                const textHeight = doc.heightOfString(valueStr, { width: maxWidth - 5, fontSize: 7.5 });
+                return 12 + textHeight;
               }
             }
             return 0;

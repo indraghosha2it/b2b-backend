@@ -3,12 +3,12 @@ const nodemailer = require('nodemailer');
 
 // Create transporter using environment variables
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT) || 465,
+  host: process.env.INFO_SMTP_HOST,
+  port: parseInt(process.env.INFO_SMTP_PORT) || 465,
   secure: true,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASSWORD,
+    user: process.env.INFO_SMTP_USER,
+    pass: process.env.INFO_SMTP_PASSWORD,
   },
   tls: {
     rejectUnauthorized: false
@@ -188,7 +188,7 @@ const sendWelcomeEmail = async (email, name) => {
             <p style="margin: 0 0 10px 0; font-size: 14px;"><strong>📞 Need Help?</strong></p>
             <p style="margin: 0; font-size: 14px;">Contact our support team:</p>
             <p style="margin: 5px 0 0 0; font-size: 14px;">
-              📧 <a href="mailto:${process.env.SMTP_USER}" style="color: #d9884e;">${process.env.SMTP_USER}</a><br>
+              📧 <a href="mailto:${process.env.INFO_SMTP_USER}" style="color: #d9884e;">${process.env.INFO_SMTP_USER}</a><br>
               📞 +8801305-785685
             </p>
           </div>
@@ -214,7 +214,7 @@ const sendWelcomeEmail = async (email, name) => {
 
   try {
     const result = await transporter.sendMail({
-      from: `"Asian Clothify" <${process.env.SMTP_USER}>`,
+      from: `"Asian Clothify" <${process.env.INFO_SMTP_USER}>`,
       to: email,
       subject: `🎉 Welcome to Asian Clothify, ${name}!`,
       html: htmlContent
@@ -416,7 +416,7 @@ const sendGoogleWelcomeEmail = async (email, name, requiresProfileCompletion = t
             <p style="margin: 0 0 10px 0; font-size: 14px;"><strong>📞 Need Help?</strong></p>
             <p style="margin: 0; font-size: 14px;">Contact our support team:</p>
             <p style="margin: 5px 0 0 0; font-size: 14px;">
-              📧 <a href="mailto:${process.env.SMTP_USER}" style="color: #d9884e;">${process.env.SMTP_USER}</a><br>
+              📧 <a href="mailto:${process.env.INFO_SMTP_USER}" style="color: #d9884e;">${process.env.INFO_SMTP_USER}</a><br>
               📞 +8801305-785685
             </p>
           </div>
@@ -442,7 +442,7 @@ const sendGoogleWelcomeEmail = async (email, name, requiresProfileCompletion = t
 
   try {
     const result = await transporter.sendMail({
-      from: `"Asian Clothify" <${process.env.SMTP_USER}>`,
+      from: `"Asian Clothify" <${process.env.INFO_SMTP_USER}>`,
       to: email,
       subject: `🔐 Welcome to Asian Clothify, ${name}!`,
       html: htmlContent

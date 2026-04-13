@@ -1197,9 +1197,7 @@ const getQuotationTemplate = (inquiry, customerDetails, adminNote) => {
               </div>
             ` : ''}
             
-            <div class="unavailable-note">
-              <strong>ℹ️ Note:</strong> Items marked with <span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px;">UNAVAILABLE</span> or displayed with strikethrough text are currently not available. Please contact us for alternatives or restock dates.
-            </div>
+         
             
             ${summaryHTML}
             

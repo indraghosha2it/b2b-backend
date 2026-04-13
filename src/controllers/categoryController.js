@@ -740,9 +740,7 @@ const addChildSubcategory = async (req, res) => {
   }
 };
 
-// @desc    Get all child subcategories of a subcategory
-// @route   GET /api/categories/:categoryId/subcategories/:subcategoryId/children
-// @access  Public
+
 // @desc    Get all child subcategories of a subcategory
 // @route   GET /api/categories/:categoryId/subcategories/:subcategoryId/children
 // @access  Public

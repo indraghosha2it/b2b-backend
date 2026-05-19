@@ -1,5 +1,8 @@
 const Category = require('../models/Category');
 const { cloudinary } = require('../config/cloudinary');
+const NodeCache = require('node-cache');
+const categoryCache = new NodeCache({ stdTTL: 300 });
+
 
 // @desc    Create new category
 // @route   POST /api/categories
@@ -84,6 +87,45 @@ const createCategory = async (req, res) => {
 // @desc    Get all categories
 // @route   GET /api/categories
 // @access  Public
+// const getCategories = async (req, res) => {
+//   try {
+//     const { page = 1, limit = 20, search } = req.query;
+//     const query = { isActive: true };
+
+//     // Search by name
+//     if (search) {
+//       query.name = { $regex: search, $options: 'i' };
+//     }
+
+//     const categories = await Category.find(query)
+//       .populate('createdBy', 'contactPerson')
+//       .sort({ createdAt: -1 })
+//       .limit(parseInt(limit))
+//       .skip((parseInt(page) - 1) * parseInt(limit));
+
+//     const total = await Category.countDocuments(query);
+
+//     res.json({
+//       success: true,
+//       data: categories,
+//       pagination: {
+//         total,
+//         page: parseInt(page),
+//         pages: Math.ceil(total / parseInt(limit))
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Get categories error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message || 'Server error while fetching categories'
+//     });
+//   }
+// };
+
+// @desc    Get all categories
+// @route   GET /api/categories
+// @access  Public
 const getCategories = async (req, res) => {
   try {
     const { page = 1, limit = 20, search } = req.query;
@@ -94,11 +136,13 @@ const getCategories = async (req, res) => {
       query.name = { $regex: search, $options: 'i' };
     }
 
+    // DON'T populate createdBy if you don't need it on homepage
     const categories = await Category.find(query)
-      .populate('createdBy', 'contactPerson')
+      .select('name image.url slug') // Only select what you need
       .sort({ createdAt: -1 })
       .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .lean(); // Use lean() for faster plain JS objects
 
     const total = await Category.countDocuments(query);
 

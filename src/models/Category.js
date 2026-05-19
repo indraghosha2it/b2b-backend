@@ -254,6 +254,10 @@ categorySchema.pre('save', function() {
   }
 });
 
+// Add indexes for faster queries
+categorySchema.index({ isActive: 1, createdAt: -1 });
+categorySchema.index({ name: 1 });
+
 
 
 module.exports = mongoose.model('Category', categorySchema);

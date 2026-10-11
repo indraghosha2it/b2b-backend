@@ -37,6 +37,8 @@ const allowedOrigins = [
   'https://zesty-tiramisu-f6e9f7.netlify.app',
   'https://fabulous-froyo-e675df.netlify.app',
   'https://kaleidoscopic-donut-42a409.netlify.app',
+  'https://ephemeral-sherbet-a0054c.netlify.app',
+
   'https://asianclothify.com',
   process.env.FRONTEND_URL // Keep this for flexibility
 ].filter(Boolean); // Remove any undefined values

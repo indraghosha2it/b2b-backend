@@ -1,7 +1,3 @@
-
-
-
-
 const Product = require('../models/Product');
 const Category = require('../models/Category');
 const { cloudinary } = require('../config/cloudinary');
@@ -9,7 +5,6 @@ const { cloudinary } = require('../config/cloudinary');
 
 
 // @desc    Create new product - WITH SUBCATEGORY SUPPORT
-// @route   POST /api/products
 // @access  Private (Moderator/Admin)
 const createProduct = async (req, res) => {
   try {
